@@ -50,29 +50,29 @@ export default function EmployeeReports() {
       <DashboardLayout>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Reports</h1>
-          <p className="text-gray-600 dark:text-gray-400">View all your submitted daily sales reports</p>
+          <p className="text-gray-600 dark:text-blue-200/70">View all your submitted daily sales reports</p>
         </div>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="card">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Reports</p>
+            <p className="text-sm text-gray-600 dark:text-blue-200/70">Total Reports</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">{reports.length}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Sales</p>
+            <p className="text-sm text-gray-600 dark:text-blue-200/70">Total Sales</p>
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               {reports.reduce((sum, r) => sum + Number(r.total_sales), 0).toLocaleString()}
             </p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Cash at Hand</p>
+            <p className="text-sm text-gray-600 dark:text-blue-200/70">Total Cash at Hand</p>
             <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
               {reports.reduce((sum, r) => sum + Number(r.cash_at_hand), 0).toLocaleString()}
             </p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Edited Reports</p>
+            <p className="text-sm text-gray-600 dark:text-blue-200/70">Edited Reports</p>
             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
               {reports.filter(r => r.is_edited).length}
             </p>
@@ -91,14 +91,14 @@ export default function EmployeeReports() {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading reports...</p>
+              <p className="mt-2 text-gray-600 dark:text-blue-200/70">Loading reports...</p>
             </div>
           ) : reports.length === 0 ? (
             <div className="text-center py-12">
               <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">No reports yet</p>
+              <p className="text-gray-500 dark:text-blue-200/70 mb-4">No reports yet</p>
               <Link href="/employee/dashboard" className="btn-primary">
                 Create Your First Report
               </Link>
@@ -106,18 +106,18 @@ export default function EmployeeReports() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <thead className="bg-gray-50 dark:bg-navy-800/50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Sales</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cash at Hand</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Expenses</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Unpaid Bills</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Total Sales</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Cash at Hand</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Expenses</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Unpaid Bills</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-blue-200/70 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-white dark:bg-navy-850 divide-y divide-gray-200 dark:divide-gray-700">
                   {reports.map((report) => {
                     const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
                     const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
@@ -128,7 +128,7 @@ export default function EmployeeReports() {
                           <span className="font-medium dark:text-white">
                             {format(new Date(report.report_date), 'MMM dd, yyyy')}
                           </span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400">
+                          <span className="block text-xs text-gray-500 dark:text-blue-200/70">
                             {format(new Date(report.report_date), 'EEEE')}
                           </span>
                         </td>

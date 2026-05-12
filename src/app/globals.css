@@ -4,14 +4,14 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 255, 255, 255;
+  --background-start-rgb: 240, 244, 250;
+  --background-end-rgb: 232, 238, 248;
 }
 
 .dark {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 17, 24, 39;
-  --background-end-rgb: 31, 41, 55;
+  --foreground-rgb: 232, 238, 246;       /* #E8EEF6 */
+  --background-start-rgb: 7, 15, 26;     /* #070F1A */
+  --background-end-rgb: 12, 26, 46;      /* #0C1A2E */
 }
 
 body {
@@ -27,24 +27,24 @@ body {
   .btn-primary {
     @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30;
   }
-  
+
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-navy-750 dark:hover:bg-navy-700 dark:text-blue-100 dark:border dark:border-navy-200/20 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
   }
-  
+
   .btn-danger {
     @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
   }
-  
+
   .input-field {
-    @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500;
+    @apply w-full px-4 py-2 border border-gray-300 dark:border-navy-200/25 rounded-lg focus:ring-2 focus:ring-navy-200/60 focus:border-transparent outline-none transition-all duration-200 bg-white dark:bg-navy-900 text-gray-900 dark:text-blue-50 placeholder-gray-400 dark:placeholder-navy-200/40;
   }
-  
+
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 dark:shadow-gray-900/50;
+    @apply bg-white dark:bg-navy-850 rounded-xl shadow-lg p-6 dark:shadow-black/40 dark:border dark:border-navy-200/15;
   }
-  
+
   .label {
-    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+    @apply block text-sm font-medium text-gray-700 dark:text-blue-200/70 mb-1;
   }
 }

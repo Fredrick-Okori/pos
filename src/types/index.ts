@@ -39,6 +39,20 @@ export interface DailyReport {
   edited_at: string | null
   created_at: string
   updated_at: string
+  // New payment / sales fields
+  stanbic: number
+  usd_amount: number
+  exchange_rate: number
+  bar_sales: number
+  kitchen_sales: number
+  shisha_sales: number
+  // Reconciliation fields
+  recon_status: 'RECONCILED' | 'SHORTAGE' | 'EXCESS' | null
+  recon_diff: number
+  // Locking fields
+  is_locked: boolean
+  locked_by: string | null
+  locked_at: string | null
   // Joined data
   profiles?: Profile
   expenses?: Expense[]
@@ -82,6 +96,46 @@ export interface ReportFormData {
   cash: number
   complementaries: number
   discounts: number
+  // New payment / sales breakdown fields
+  stanbic: number
+  usd_amount: number
+  exchange_rate: number
+  bar_sales: number
+  kitchen_sales: number
+  shisha_sales: number
   expenses: { description: string; amount: number; paid_from: AccountType }[]
   unpaid_bills: { customer_name: string; amount: number; notes: string }[]
+}
+
+export interface Client {
+  id: string
+  organization_id: string | null
+  name: string
+  created_at: string
+  // computed from joins
+  charges?: ClientCharge[]
+  payments?: ClientPayment[]
+}
+
+export interface ClientCharge {
+  id: string
+  client_id: string
+  organization_id: string | null
+  date: string
+  amount: number
+  note: string
+  report_id: string | null
+  created_at: string
+}
+
+export interface ClientPayment {
+  id: string
+  client_id: string
+  organization_id: string | null
+  date: string
+  amount: number
+  note: string
+  linked_charge_id: string | null
+  added_by: string | null
+  created_at: string
 }

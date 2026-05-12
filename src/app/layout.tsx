@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
-import { Outfit } from 'next/font/google'
+import { Plus_Jakarta_Sans, Fraunces, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { Toaster } from 'react-hot-toast'
 
-const outfit = Outfit({ subsets: ['latin'] })
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif', axes: ['opsz'] })
+const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'Krug POS System',
@@ -20,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={outfit.className}>
+      <body className={`${jakarta.variable} ${fraunces.variable} ${mono.variable} ${jakarta.className}`}>
         <ThemeProvider>
           <AuthProvider>
             <OrganizationProvider>
@@ -28,7 +30,7 @@ export default function RootLayout({
               <Toaster
                 position="top-right"
                 toastOptions={{
-                  className: 'dark:bg-gray-800 dark:text-white',
+                  className: 'dark:bg-navy-850 dark:text-white',
                 }}
               />
             </OrganizationProvider>

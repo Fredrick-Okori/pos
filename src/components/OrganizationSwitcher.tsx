@@ -55,9 +55,9 @@ export default function OrganizationSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-navy-850 rounded-xl shadow-xl border border-gray-200 dark:border-navy-200/15 z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-navy-200/15">
+            <p className="text-xs font-semibold text-gray-500 dark:text-blue-200/70 uppercase tracking-wider">
               Switch Bar
             </p>
           </div>
@@ -76,7 +76,7 @@ export default function OrganizationSwitcher() {
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                   selectedOrg.id === org.id
                     ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                    : 'bg-gray-100 dark:bg-navy-800 text-gray-600 dark:text-blue-200'
                 }`}>
                   {org.name.charAt(0).toUpperCase()}
                 </div>
@@ -89,7 +89,7 @@ export default function OrganizationSwitcher() {
                     {org.name}
                   </p>
                   {org.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{org.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-blue-200/70 truncate">{org.description}</p>
                   )}
                 </div>
                 {selectedOrg.id === org.id && (
