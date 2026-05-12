@@ -3,33 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 240, 244, 250;
-  --background-end-rgb: 232, 238, 248;
-}
-
-.dark {
-  --foreground-rgb: 232, 238, 246;       /* #E8EEF6 */
-  --background-start-rgb: 7, 15, 26;     /* #070F1A */
-  --background-end-rgb: 12, 26, 46;      /* #0C1A2E */
+  --foreground-rgb: 232, 238, 246;
+  --background-start-rgb: 7, 15, 26;
+  --background-end-rgb: 12, 26, 46;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start-rgb)),
-    rgb(var(--background-end-rgb))
-  );
+  background: rgb(var(--background-start-rgb));
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30;
+    @apply bg-gradient-to-r from-navy-300 to-navy-200 hover:from-navy-400 hover:to-navy-300 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-navy-750 dark:hover:bg-navy-700 dark:text-blue-100 dark:border dark:border-navy-200/20 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-navy-750 hover:bg-navy-700 text-blue-100 border border-navy-200/20 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
   }
 
   .btn-danger {
@@ -37,14 +27,14 @@ body {
   }
 
   .input-field {
-    @apply w-full px-4 py-2 border border-gray-300 dark:border-navy-200/25 rounded-lg focus:ring-2 focus:ring-navy-200/60 focus:border-transparent outline-none transition-all duration-200 bg-white dark:bg-navy-900 text-gray-900 dark:text-blue-50 placeholder-gray-400 dark:placeholder-navy-200/40;
+    @apply w-full px-4 py-2 border border-navy-200/25 rounded-lg focus:ring-2 focus:ring-navy-200/50 focus:border-transparent outline-none transition-all duration-200 bg-navy-900 text-blue-50 placeholder-navy-200/40;
   }
 
   .card {
-    @apply bg-white dark:bg-navy-850 rounded-xl shadow-lg p-6 dark:shadow-black/40 dark:border dark:border-navy-200/15;
+    @apply bg-navy-850 rounded-xl p-6 border border-navy-200/15;
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 dark:text-blue-200/70 mb-1;
+    @apply block text-sm font-medium text-blue-200/70 mb-1;
   }
 }

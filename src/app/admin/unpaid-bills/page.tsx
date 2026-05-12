@@ -89,8 +89,8 @@ export default function AdminUnpaidBills() {
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Unpaid Bills</h1>
-          <p className="text-gray-600">Track and manage all unpaid customer bills</p>
+          <h1 className="text-2xl font-bold text-white">Unpaid Bills</h1>
+          <p className="text-blue-200/70">Track and manage all unpaid customer bills</p>
         </div>
 
         {/* Summary Stats */}
@@ -100,11 +100,11 @@ export default function AdminUnpaidBills() {
             <p className="text-3xl font-bold text-amber-800">{totalUnpaid.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600">Total Bills</p>
-            <p className="text-3xl font-bold text-gray-900">{filteredBills.length}</p>
+            <p className="text-sm text-blue-200/70">Total Bills</p>
+            <p className="text-3xl font-bold text-white">{filteredBills.length}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600">Unique Customers</p>
+            <p className="text-sm text-blue-200/70">Unique Customers</p>
             <p className="text-3xl font-bold text-primary-600">{sortedCustomers.length}</p>
           </div>
         </div>
@@ -129,14 +129,14 @@ export default function AdminUnpaidBills() {
         {loading ? (
           <div className="card text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading unpaid bills...</p>
+            <p className="mt-2 text-blue-200/70">Loading unpaid bills...</p>
           </div>
         ) : sortedCustomers.length === 0 ? (
           <div className="card text-center py-12">
             <svg className="w-16 h-16 text-green-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-gray-500">No unpaid bills found</p>
+            <p className="text-blue-200/50">No unpaid bills found</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -150,20 +150,20 @@ export default function AdminUnpaidBills() {
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{customer.name}</h3>
-                      <p className="text-sm text-gray-500">{customer.bills.length} unpaid bill(s)</p>
+                      <h3 className="font-semibold text-white">{customer.name}</h3>
+                      <p className="text-sm text-blue-200/50">{customer.bills.length} unpaid bill(s)</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-amber-600">{customer.total.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">Total owed</p>
+                    <p className="text-xs text-blue-200/50">Total owed</p>
                   </div>
                 </div>
                 
                 <div className="border-t border-gray-100 pt-4">
                   <table className="min-w-full">
                     <thead>
-                      <tr className="text-xs text-gray-500 uppercase">
+                      <tr className="text-xs text-blue-200/50 uppercase">
                         <th className="text-left pb-2">Date</th>
                         <th className="text-left pb-2">Recorded By</th>
                         <th className="text-left pb-2">Notes</th>
@@ -176,10 +176,10 @@ export default function AdminUnpaidBills() {
                           <td className="py-2">
                             {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
                           </td>
-                          <td className="py-2 text-gray-600">
+                          <td className="py-2 text-blue-200/70">
                             {bill.daily_reports.profiles.full_name}
                           </td>
-                          <td className="py-2 text-gray-600">
+                          <td className="py-2 text-blue-200/70">
                             {bill.notes || '-'}
                           </td>
                           <td className="py-2 text-right font-medium text-amber-600">

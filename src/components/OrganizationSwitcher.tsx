@@ -55,9 +55,9 @@ export default function OrganizationSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-navy-850 rounded-xl shadow-xl border border-gray-200 dark:border-navy-200/15 z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-navy-200/15">
-            <p className="text-xs font-semibold text-gray-500 dark:text-blue-200/70 uppercase tracking-wider">
+        <div className="absolute top-full left-0 mt-2 w-64 bg-navy-850 rounded-xl shadow-xl border border-navy-200/15 z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-navy-200/15">
+            <p className="text-xs font-semibold text-blue-200/50 uppercase tracking-wider">
               Switch Bar
             </p>
           </div>
@@ -69,14 +69,14 @@ export default function OrganizationSwitcher() {
                   setSelectedOrg(org)
                   setOpen(false)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-navy-950 dark:hover:bg-gray-700/50 transition-colors ${
                   selectedOrg.id === org.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                 }`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                   selectedOrg.id === org.id
                     ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-navy-800 text-gray-600 dark:text-blue-200'
+                    : 'bg-navy-900 text-blue-200/70'
                 }`}>
                   {org.name.charAt(0).toUpperCase()}
                 </div>
@@ -84,12 +84,12 @@ export default function OrganizationSwitcher() {
                   <p className={`text-sm font-medium truncate ${
                     selectedOrg.id === org.id
                       ? 'text-blue-700 dark:text-blue-300'
-                      : 'text-gray-900 dark:text-white'
+                      : 'text-white'
                   }`}>
                     {org.name}
                   </p>
                   {org.description && (
-                    <p className="text-xs text-gray-500 dark:text-blue-200/70 truncate">{org.description}</p>
+                    <p className="text-xs text-blue-200/50 truncate">{org.description}</p>
                   )}
                 </div>
                 {selectedOrg.id === org.id && (

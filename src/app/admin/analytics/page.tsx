@@ -108,14 +108,14 @@ export default function AdminAnalytics() {
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600">Sales performance and insights (Last 30 days)</p>
+          <h1 className="text-2xl font-bold text-white">Analytics</h1>
+          <p className="text-blue-200/70">Sales performance and insights (Last 30 days)</p>
         </div>
 
         {loading ? (
           <div className="card text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading analytics...</p>
+            <p className="mt-2 text-blue-200/70">Loading analytics...</p>
           </div>
         ) : (
           <>
@@ -128,9 +128,9 @@ export default function AdminAnalytics() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600">Total Sales</p>
+                  <p className="text-sm text-blue-200/70">Total Sales</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{totalSales.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-white">{totalSales.toLocaleString()}</p>
               </div>
               
               <div className="card">
@@ -140,7 +140,7 @@ export default function AdminAnalytics() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600">Avg Daily</p>
+                  <p className="text-sm text-blue-200/70">Avg Daily</p>
                 </div>
                 <p className="text-2xl font-bold text-primary-600">{avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
               </div>
@@ -152,7 +152,7 @@ export default function AdminAnalytics() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600">Expenses</p>
+                  <p className="text-sm text-blue-200/70">Expenses</p>
                 </div>
                 <p className="text-2xl font-bold text-red-600">{totalExpenses.toLocaleString()}</p>
               </div>
@@ -164,7 +164,7 @@ export default function AdminAnalytics() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600">Unpaid Bills</p>
+                  <p className="text-sm text-blue-200/70">Unpaid Bills</p>
                 </div>
                 <p className="text-2xl font-bold text-amber-600">{totalUnpaid.toLocaleString()}</p>
               </div>
@@ -177,13 +177,13 @@ export default function AdminAnalytics() {
                 <div className="flex items-end justify-between gap-2 h-48">
                   {last7Days.map((day) => (
                     <div key={day.date} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="w-full bg-gray-100 rounded-t-lg relative flex-1 flex items-end">
+                      <div className="w-full bg-navy-900 rounded-t-lg relative flex-1 flex items-end">
                         <div
                           className="w-full bg-primary-500 rounded-t-lg transition-all duration-500"
                           style={{ height: `${(day.sales / maxDailySales) * 100}%`, minHeight: day.sales > 0 ? '8px' : '0' }}
                         />
                       </div>
-                      <span className="text-xs text-gray-500">{day.label}</span>
+                      <span className="text-xs text-blue-200/50">{day.label}</span>
                       <span className="text-xs font-medium">{(day.sales / 1000).toFixed(0)}k</span>
                     </div>
                   ))}
@@ -196,37 +196,37 @@ export default function AdminAnalytics() {
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Cash at Hand</span>
+                      <span className="text-blue-200/70">Cash at Hand</span>
                       <span className="font-medium">{paymentBreakdown.cash.toLocaleString()}</span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 bg-navy-900 rounded-full overflow-hidden">
                       <div className="h-full bg-green-500 rounded-full" style={{ width: `${(paymentBreakdown.cash / totalSales) * 100}%` }} />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">MTN Mobile Money</span>
+                      <span className="text-blue-200/70">MTN Mobile Money</span>
                       <span className="font-medium">{paymentBreakdown.mtn.toLocaleString()}</span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 bg-navy-900 rounded-full overflow-hidden">
                       <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${(paymentBreakdown.mtn / totalSales) * 100}%` }} />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Airtel Money</span>
+                      <span className="text-blue-200/70">Airtel Money</span>
                       <span className="font-medium">{paymentBreakdown.airtel.toLocaleString()}</span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 bg-navy-900 rounded-full overflow-hidden">
                       <div className="h-full bg-red-500 rounded-full" style={{ width: `${(paymentBreakdown.airtel / totalSales) * 100}%` }} />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Visa Card</span>
+                      <span className="text-blue-200/70">Visa Card</span>
                       <span className="font-medium">{paymentBreakdown.visa.toLocaleString()}</span>
                     </div>
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-3 bg-navy-900 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(paymentBreakdown.visa / totalSales) * 100}%` }} />
                     </div>
                   </div>
@@ -238,12 +238,12 @@ export default function AdminAnalytics() {
             <div className="card">
               <h3 className="font-semibold mb-6">Employee Performance</h3>
               {employeePerformance.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No employee data available</p>
+                <p className="text-blue-200/50 text-center py-8">No employee data available</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
                     <thead>
-                      <tr className="text-xs text-gray-500 uppercase border-b">
+                      <tr className="text-xs text-blue-200/50 uppercase border-b">
                         <th className="text-left pb-3">Rank</th>
                         <th className="text-left pb-3">Employee</th>
                         <th className="text-right pb-3">Reports</th>
@@ -267,11 +267,11 @@ export default function AdminAnalytics() {
                               <span className="font-medium">{emp.full_name}</span>
                             </div>
                           </td>
-                          <td className="py-3 text-right text-gray-600">{emp.reportCount}</td>
+                          <td className="py-3 text-right text-blue-200/70">{emp.reportCount}</td>
                           <td className="py-3 text-right font-medium">{emp.totalSales.toLocaleString()}</td>
                           <td className="py-3 text-right">
                             <div className="w-24 ml-auto">
-                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-2 bg-navy-900 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-primary-500 rounded-full"
                                   style={{ width: `${employeePerformance[0].totalSales > 0 ? (emp.totalSales / employeePerformance[0].totalSales) * 100 : 0}%` }}

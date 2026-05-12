@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Fraunces, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { ThemeProvider } from '@/contexts/ThemeContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -15,27 +14,25 @@ export const metadata: Metadata = {
   description: 'Point of Sale System for Daily Sales Reporting',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <body className={`${jakarta.variable} ${fraunces.variable} ${mono.variable} ${jakarta.className}`}>
-        <ThemeProvider>
-          <AuthProvider>
-            <OrganizationProvider>
-              {children}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  className: 'dark:bg-navy-850 dark:text-white',
-                }}
-              />
-            </OrganizationProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <OrganizationProvider>
+            {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: '#0E1E35',
+                  color: '#E8EEF6',
+                  border: '1px solid rgba(37,99,168,.3)',
+                },
+              }}
+            />
+          </OrganizationProvider>
+        </AuthProvider>
       </body>
     </html>
   )

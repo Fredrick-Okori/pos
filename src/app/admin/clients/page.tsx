@@ -187,8 +187,8 @@ export default function AdminClientsPage() {
       <DashboardLayout>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Client Ledger</h1>
-            <p className="text-gray-600 dark:text-blue-200/70">Track charges and payments for client accounts</p>
+            <h1 className="text-2xl font-bold text-white">Client Ledger</h1>
+            <p className="text-blue-200/70">Track charges and payments for client accounts</p>
           </div>
           <button
             onClick={() => setShowAddChargeModal(true)}
@@ -221,14 +221,14 @@ export default function AdminClientsPage() {
         {loading ? (
           <div className="card text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600 dark:text-blue-200/70">Loading clients...</p>
+            <p className="mt-2 text-blue-200/70">Loading clients...</p>
           </div>
         ) : filteredClients.length === 0 ? (
           <div className="card text-center py-12">
-            <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-16 h-16 text-gray-300 dark:text-blue-200/70 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            <p className="text-gray-500 dark:text-blue-200/70">
+            <p className="text-blue-200/50">
               {searchTerm ? 'No clients match your search.' : 'No clients yet. Add a charge to create the first client.'}
             </p>
           </div>
@@ -251,24 +251,24 @@ export default function AdminClientsPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{client.name}</h3>
-                    <p className="text-xs text-gray-500 dark:text-blue-200/70 mt-0.5">
+                    <h3 className="font-semibold text-white truncate">{client.name}</h3>
+                    <p className="text-xs text-blue-200/50 mt-0.5">
                       {client.transactionCount} transaction{client.transactionCount !== 1 ? 's' : ''}
                     </p>
 
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-navy-200/15">
+                    <div className="mt-3 pt-3 border-t border-gray-100">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-500 dark:text-blue-200/70">Balance Due</span>
+                        <span className="text-xs text-blue-200/50">Balance Due</span>
                         <span className={`text-lg font-bold font-mono ${
                           client.balance > 0
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-green-600 dark:text-green-400'
+                            ? 'text-red-600'
+                            : 'text-green-600'
                         }`}>
                           {client.balance.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between items-center mt-1">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-gray-400 dark:text-blue-200/50">
                           Charged: {client.totalCharged.toLocaleString()} &nbsp;|&nbsp; Paid: {client.totalPaid.toLocaleString()}
                         </span>
                       </div>
@@ -294,12 +294,12 @@ export default function AdminClientsPage() {
         {/* Add Charge Modal */}
         {showAddChargeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white dark:bg-navy-850 rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="bg-navy-850 rounded-2xl shadow-2xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Add Client Charge</h2>
+                <h2 className="text-lg font-semibold text-white">Add Client Charge</h2>
                 <button
                   onClick={() => { setShowAddChargeModal(false); setChargeForm(emptyChargeForm) }}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg"
+                  className="p-1 text-gray-400 hover:text-blue-200/70 dark:hover:text-gray-200 rounded-lg"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -326,7 +326,7 @@ export default function AdminClientsPage() {
                     autoComplete="off"
                   />
                   {showSuggestions && nameSuggestions.length > 0 && (
-                    <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-200/20 rounded-xl shadow-lg overflow-hidden">
+                    <ul className="absolute z-10 w-full mt-1 bg-navy-850 border border-navy-200/15 rounded-xl shadow-lg overflow-hidden">
                       {nameSuggestions.map((name) => (
                         <li
                           key={name}
@@ -334,7 +334,7 @@ export default function AdminClientsPage() {
                             setChargeForm(prev => ({ ...prev, clientName: name }))
                             setShowSuggestions(false)
                           }}
-                          className="px-4 py-2.5 text-sm text-gray-700 dark:text-blue-100 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
+                          className="px-4 py-2.5 text-sm text-blue-100 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
                         >
                           {name}
                         </li>

@@ -148,8 +148,8 @@ export default function AdminReports() {
       <DashboardLayout>
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">All Reports</h1>
-            <p className="text-gray-600">View and export all employee sales reports</p>
+            <h1 className="text-2xl font-bold text-white">All Reports</h1>
+            <p className="text-blue-200/70">View and export all employee sales reports</p>
           </div>
           <button onClick={exportToCSV} className="btn-primary">
             Export CSV
@@ -207,19 +207,19 @@ export default function AdminReports() {
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="card">
-            <p className="text-sm text-gray-600">Total Sales</p>
-            <p className="text-2xl font-bold text-gray-900">{summary.totalSales.toLocaleString()}</p>
+            <p className="text-sm text-blue-200/70">Total Sales</p>
+            <p className="text-2xl font-bold text-white">{summary.totalSales.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600">Cash at Hand</p>
+            <p className="text-sm text-blue-200/70">Cash at Hand</p>
             <p className="text-2xl font-bold text-green-600">{summary.cashAtHand.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600">Total Expenses</p>
+            <p className="text-sm text-blue-200/70">Total Expenses</p>
             <p className="text-2xl font-bold text-red-600">{summary.expenses.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-gray-600">Unpaid Bills</p>
+            <p className="text-sm text-blue-200/70">Unpaid Bills</p>
             <p className="text-2xl font-bold text-amber-600">{summary.unpaidBills.toLocaleString()}</p>
           </div>
         </div>
@@ -231,31 +231,31 @@ export default function AdminReports() {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading reports...</p>
+              <p className="mt-2 text-blue-200/70">Loading reports...</p>
             </div>
           ) : reports.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No reports found for the selected criteria.</p>
+            <p className="text-blue-200/50 text-center py-8">No reports found for the selected criteria.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-navy-200/15">
+                <thead className="bg-navy-950">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Sales</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cash at Hand</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Expenses</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unpaid</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Employee</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Total Sales</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Cash at Hand</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Expenses</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Unpaid</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-blue-200/50 uppercase">Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-navy-850 divide-y divide-navy-200/15">
                   {reports.map((report) => {
                     const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
                     const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
                     
                     return (
-                      <tr key={report.id} className="hover:bg-gray-50">
+                      <tr key={report.id} className="hover:bg-navy-950">
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                           {format(new Date(report.report_date), 'MMM dd, yyyy')}
                         </td>

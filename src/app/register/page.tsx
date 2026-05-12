@@ -13,7 +13,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-600">Redirecting to login...</p>
+      <p className="text-blue-200/70">Redirecting to login...</p>
     </div>
   )
 }

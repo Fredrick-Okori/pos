@@ -118,8 +118,8 @@ export default function EmployeeManagement() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-            <p className="text-gray-600">Create and manage employee accounts</p>
+            <h1 className="text-2xl font-bold text-white">Employee Management</h1>
+            <p className="text-blue-200/70">Create and manage employee accounts</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -136,25 +136,25 @@ export default function EmployeeManagement() {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading employees...</p>
+              <p className="mt-2 text-blue-200/70">Loading employees...</p>
             </div>
           ) : employees.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No employees found.</p>
+            <p className="text-blue-200/50 text-center py-8">No employees found.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-navy-200/15">
+                <thead className="bg-navy-950">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Role</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Created</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-blue-200/50 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-navy-850 divide-y divide-navy-200/15">
                   {employees.map((employee) => (
-                    <tr key={employee.id} className="hover:bg-gray-50">
+                    <tr key={employee.id} className="hover:bg-navy-950">
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
@@ -165,7 +165,7 @@ export default function EmployeeManagement() {
                           <span className="font-medium">{employee.full_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-200/70">
                         {employee.email}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -177,7 +177,7 @@ export default function EmployeeManagement() {
                           {employee.role === 'superadmin' ? 'Admin' : 'Employee'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-200/70">
                         {format(new Date(employee.created_at), 'MMM dd, yyyy')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center">
@@ -185,7 +185,7 @@ export default function EmployeeManagement() {
                           <select
                             value={employee.role}
                             onChange={(e) => handleRoleChange(employee.id, e.target.value as 'employee' | 'superadmin')}
-                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                            className="text-sm border border-navy-200/20 rounded px-2 py-1"
                           >
                             <option value="employee">Employee</option>
                             <option value="superadmin">Admin</option>
@@ -206,11 +206,11 @@ export default function EmployeeManagement() {
         {/* Create Employee Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="bg-navy-850 rounded-xl max-w-md w-full">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-bold">Create New Employee</h2>
-                  <button onClick={() => setShowCreateModal(false)} className="text-gray-500 hover:text-gray-700">
+                  <button onClick={() => setShowCreateModal(false)} className="text-blue-200/50 hover:text-blue-100">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -254,7 +254,7 @@ export default function EmployeeManagement() {
                     required
                     minLength={6}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                  <p className="text-xs text-blue-200/50 mt-1">Minimum 6 characters</p>
                 </div>
 
                 <div className="flex gap-3 pt-4">
