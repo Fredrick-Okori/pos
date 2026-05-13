@@ -189,7 +189,7 @@ export default function ClientStatementPage() {
       <ProtectedRoute allowedRoles={['superadmin']}>
         <DashboardLayout>
           <div className="text-center py-16">
-            <p className="text-blue-200/50 mb-4">Client not found.</p>
+            <p className="text-gray-400 mb-4">Client not found.</p>
             <Link href="/admin/clients" className="btn-primary">Back to Client Ledger</Link>
           </div>
         </DashboardLayout>
@@ -204,7 +204,7 @@ export default function ClientStatementPage() {
         <div className="mb-6">
           <Link
             href="/admin/clients"
-            className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4"
+            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline mb-4"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -214,8 +214,8 @@ export default function ClientStatementPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">{client.name}</h1>
-              <p className="text-blue-200/70 text-sm">
+              <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+              <p className="text-gray-500 text-sm">
                 Client since {format(new Date(client.created_at), 'MMM dd, yyyy')}
               </p>
             </div>
@@ -234,22 +234,22 @@ export default function ClientStatementPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="card">
-            <p className="text-xs text-blue-200/50 uppercase tracking-wide mb-1">Total Charged</p>
-            <p className="text-2xl font-bold text-white">{totalCharged.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Charged</p>
+            <p className="text-2xl font-bold text-gray-900">{totalCharged.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-xs text-blue-200/50 uppercase tracking-wide mb-1">Total Paid</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Paid</p>
             <p className="text-2xl font-bold text-green-600">{totalPaid.toLocaleString()}</p>
           </div>
           <div className="card">
-            <p className="text-xs text-blue-200/50 uppercase tracking-wide mb-1">Balance Due</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Balance Due</p>
             <p className={`text-2xl font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {balance.toLocaleString()}
             </p>
           </div>
-          <div className={`card ${isSettled ? 'bg-green-50 dark:bg-green-900/20 border border-green-200-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200-red-800'}`}>
-            <p className="text-xs text-blue-200/50 uppercase tracking-wide mb-1">Status</p>
-            <p className={`text-2xl font-bold ${isSettled ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+          <div className={`card ${isSettled ? 'bg-green-50 border border-green-200-green-800' : 'bg-red-50 border border-red-200-red-800'}`}>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Status</p>
+            <p className={`text-2xl font-bold ${isSettled ? 'text-green-700' : 'text-red-700'}`}>
               {isSettled ? 'SETTLED' : 'OUTSTANDING'}
             </p>
           </div>
@@ -262,38 +262,38 @@ export default function ClientStatementPage() {
           </h2>
 
           {transactions.length === 0 ? (
-            <p className="text-blue-200/50 text-sm text-center py-8">
+            <p className="text-gray-400 text-sm text-center py-8">
               No transactions yet.
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-navy-200/15 dark:divide-gray-700">
-                <thead className="bg-navy-950">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase tracking-wider">Description</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase tracking-wider">Charged (UGX)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase tracking-wider">Paid (UGX)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase tracking-wider">Running Balance</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Charged (UGX)</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Paid (UGX)</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Running Balance</th>
                   </tr>
                 </thead>
-                <tbody className="bg-navy-850 divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {transactions.map((row) => (
-                    <tr key={`${row.type}-${row.id}`} className="hover:bg-navy-950 dark:hover:bg-navy-850/50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-100">
+                    <tr key={`${row.type}-${row.id}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                         {format(new Date(row.date), 'MMM dd, yyyy')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${
                           row.type === 'CHARGE'
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                            : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-green-100 text-green-800'
                         }`}>
                           {row.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-blue-100 max-w-xs truncate">
+                      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
                         {row.description}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-red-600">
@@ -320,12 +320,12 @@ export default function ClientStatementPage() {
         {/* Record Payment Modal */}
         {showPaymentForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-navy-850 rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold text-white">Record Payment</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Record Payment</h2>
                 <button
                   onClick={() => { setShowPaymentForm(false); setPaymentForm(emptyPaymentForm) }}
-                  className="p-1 text-gray-400 hover:text-blue-200/70 dark:hover:text-gray-200 rounded-lg"
+                  className="p-1 text-gray-400 hover:text-gray-500 rounded-lg"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

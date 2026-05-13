@@ -183,8 +183,8 @@ export default function AdminDashboard() {
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-          <p className="text-blue-200/70">View and manage all employee sales reports</p>
+          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-500">View and manage all employee sales reports</p>
         </div>
 
           {/* Filters */}
@@ -238,23 +238,23 @@ export default function AdminDashboard() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
             <div className="card">
-              <p className="text-sm text-blue-200/70">Total Sales</p>
-              <p className="text-2xl font-bold text-white">{summary.totalSales.toLocaleString()}</p>
+              <p className="text-sm text-gray-500">Total Sales</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalSales.toLocaleString()}</p>
             </div>
             <div className="card">
-              <p className="text-sm text-blue-200/70">Cash at Hand</p>
+              <p className="text-sm text-gray-500">Cash at Hand</p>
               <p className="text-2xl font-bold text-emerald-600">{summary.cashAtHand.toLocaleString()}</p>
             </div>
             <div className="card">
-              <p className="text-sm text-blue-200/70">Total Expenses</p>
+              <p className="text-sm text-gray-500">Total Expenses</p>
               <p className="text-2xl font-bold text-red-600">{summary.expenses.toLocaleString()}</p>
             </div>
             <div className="card">
-              <p className="text-sm text-blue-200/70">Unpaid Bills</p>
+              <p className="text-sm text-gray-500">Unpaid Bills</p>
               <p className="text-2xl font-bold text-amber-600">{summary.unpaidBills.toLocaleString()}</p>
             </div>
             <div className="card">
-              <p className="text-sm text-blue-200/70">Net Cash</p>
+              <p className="text-sm text-gray-500">Net Cash</p>
               <p className={`text-2xl font-bold ${summary.cashAtHand - summary.expenses >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                 {(summary.cashAtHand - summary.expenses).toLocaleString()}
               </p>
@@ -263,25 +263,25 @@ export default function AdminDashboard() {
 
           {/* Payment Breakdown */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="card bg-red-50 dark:bg-red-900/20">
+            <div className="card bg-red-50">
               <p className="text-sm text-red-700">Airtel Money</p>
-              <p className="text-xl font-bold text-red-800 dark:text-red-300">{summary.airtelMoney.toLocaleString()}</p>
+              <p className="text-xl font-bold text-red-800">{summary.airtelMoney.toLocaleString()}</p>
             </div>
-            <div className="card bg-yellow-50 dark:bg-yellow-900/20">
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">MTN Money</p>
-              <p className="text-xl font-bold text-yellow-800 dark:text-yellow-300">{summary.mtnMoney.toLocaleString()}</p>
+            <div className="card bg-yellow-50">
+              <p className="text-sm text-yellow-700">MTN Money</p>
+              <p className="text-xl font-bold text-yellow-800">{summary.mtnMoney.toLocaleString()}</p>
             </div>
-            <div className="card bg-blue-50 dark:bg-blue-900/20">
-              <p className="text-sm text-blue-700 dark:text-blue-400">Visa Card</p>
-              <p className="text-xl font-bold text-blue-800 dark:text-blue-300">{summary.visaCard.toLocaleString()}</p>
+            <div className="card bg-blue-50">
+              <p className="text-sm text-blue-700">Visa Card</p>
+              <p className="text-xl font-bold text-blue-800">{summary.visaCard.toLocaleString()}</p>
             </div>
-            <div className="card bg-green-50 dark:bg-green-900/20">
+            <div className="card bg-green-50">
               <p className="text-sm text-green-700">Cash</p>
-              <p className="text-xl font-bold text-green-800 dark:text-green-300">{summary.cash.toLocaleString()}</p>
+              <p className="text-xl font-bold text-green-800">{summary.cash.toLocaleString()}</p>
             </div>
-            <div className="card bg-purple-50 dark:bg-purple-900/20">
-              <p className="text-sm text-purple-700 dark:text-purple-400">Complementaries</p>
-              <p className="text-xl font-bold text-purple-800 dark:text-purple-300">{summary.complementaries.toLocaleString()}</p>
+            <div className="card bg-purple-50">
+              <p className="text-sm text-purple-700">Complementaries</p>
+              <p className="text-xl font-bold text-purple-800">{summary.complementaries.toLocaleString()}</p>
             </div>
           </div>
 
@@ -292,32 +292,32 @@ export default function AdminDashboard() {
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-                <p className="mt-2 text-blue-200/70">Loading reports...</p>
+                <p className="mt-2 text-gray-500">Loading reports...</p>
               </div>
             ) : reports.length === 0 ? (
-              <p className="text-blue-200/50 text-center py-8">No reports found for the selected criteria.</p>
+              <p className="text-gray-400 text-center py-8">No reports found for the selected criteria.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-navy-200/15 dark:divide-gray-700">
-                  <thead className="bg-navy-950/50">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-blue-200/50 uppercase">Employee</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Total Sales</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Cash at Hand</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Expenses</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-blue-200/50 uppercase">Unpaid</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-blue-200/50 uppercase">Status</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-blue-200/50 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Employee</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total Sales</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cash at Hand</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Expenses</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Unpaid</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-navy-850 divide-y divide-navy-200/15 dark:divide-gray-700">
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {reports.map((report) => {
                       const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
                       const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
                       
                       return (
-                        <tr key={report.id} className="hover:bg-navy-950 dark:hover:bg-gray-700/50">
+                        <tr key={report.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             {format(new Date(report.report_date), 'MMM dd, yyyy')}
                           </td>
@@ -338,11 +338,11 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-center">
                             {report.is_edited ? (
-                              <span className="px-2 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">
+                              <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
                                 Edited
                               </span>
                             ) : (
-                              <span className="px-2 py-1 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full">
+                              <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
                                 Original
                               </span>
                             )}
@@ -410,16 +410,16 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-navy-850 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">Report Details</h2>
-              <p className="text-sm text-blue-200/70">
+              <p className="text-sm text-gray-500">
                 {format(new Date(report.report_date), 'MMMM dd, yyyy')} - {(report as any).profiles?.full_name}
               </p>
             </div>
-            <button onClick={onClose} className="text-blue-200/50 hover:text-blue-100 dark:hover:text-gray-200">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -503,19 +503,19 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
           </div>
 
           {/* Calculated Values */}
-          <div className="bg-navy-950/50 rounded-lg p-4">
+          <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="font-semibold mb-3">Calculated Values</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-blue-200/70">Cash at Hand</p>
+                <p className="text-sm text-gray-500">Cash at Hand</p>
                 <p className="text-lg font-bold text-emerald-600">{cashAtHand.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-sm text-blue-200/70">Total Expenses</p>
+                <p className="text-sm text-gray-500">Total Expenses</p>
                 <p className="text-lg font-bold text-red-600">{expenses.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-sm text-blue-200/70">Net Cash</p>
+                <p className="text-sm text-gray-500">Net Cash</p>
                 <p className={`text-lg font-bold ${cashAtHand - expenses >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                   {(cashAtHand - expenses).toLocaleString()}
                 </p>
@@ -527,11 +527,11 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
           {report.expenses && report.expenses.length > 0 && (
             <div>
               <h3 className="font-semibold mb-3">Expenses</h3>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+              <div className="bg-red-50 rounded-lg p-4">
                 <ul className="space-y-2">
                   {report.expenses.map((expense) => (
                     <li key={expense.id} className="flex justify-between text-sm">
-                      <span className="dark:text-blue-200">{expense.description}</span>
+                      <span className="text-gray-600">{expense.description}</span>
                       <span className="font-medium">{Number(expense.amount).toLocaleString()}</span>
                     </li>
                   ))}
@@ -544,13 +544,13 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
           {report.unpaid_bills && report.unpaid_bills.length > 0 && (
             <div>
               <h3 className="font-semibold mb-3">Unpaid Bills ({unpaidBills.toLocaleString()} total)</h3>
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
+              <div className="bg-amber-50 rounded-lg p-4">
                 <ul className="space-y-2">
                   {report.unpaid_bills.map((bill) => (
                     <li key={bill.id} className="flex justify-between text-sm">
                       <div>
                         <span className="font-medium">{bill.customer_name}</span>
-                        {bill.notes && <span className="text-blue-200/70 ml-2">({bill.notes})</span>}
+                        {bill.notes && <span className="text-gray-500 ml-2">({bill.notes})</span>}
                       </div>
                       <span className="font-medium">{Number(bill.amount).toLocaleString()}</span>
                     </li>
@@ -573,8 +573,8 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
 
           {/* Edit History */}
           {report.is_edited && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200-amber-700 rounded-lg p-3 text-sm">
-              <p className="text-amber-800 dark:text-amber-300">
+            <div className="bg-amber-50 border border-amber-200-amber-700 rounded-lg p-3 text-sm">
+              <p className="text-amber-800">
                 <span className="font-medium">⚠️ This report was edited</span>
                 {report.edited_at && (
                   <span className="ml-2">on {format(new Date(report.edited_at), 'MMM dd, yyyy HH:mm')}</span>

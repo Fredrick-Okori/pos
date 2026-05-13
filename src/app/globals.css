@@ -2,24 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 232, 238, 246;
-  --background-start-rgb: 7, 15, 26;
-  --background-end-rgb: 12, 26, 46;
-}
-
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background: #f4f6fa;
+  color: #111827;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-navy-300 to-navy-200 hover:from-navy-400 hover:to-navy-300 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-navy-300 hover:bg-navy-200 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-navy-750 hover:bg-navy-700 text-blue-100 border border-navy-200/20 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
   }
 
   .btn-danger {
@@ -27,14 +21,14 @@ body {
   }
 
   .input-field {
-    @apply w-full px-4 py-2 border border-navy-200/25 rounded-lg focus:ring-2 focus:ring-navy-200/50 focus:border-transparent outline-none transition-all duration-200 bg-navy-900 text-blue-50 placeholder-navy-200/40;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy-200/50 focus:border-navy-300 outline-none transition-all duration-200 bg-white text-gray-900 placeholder-gray-400;
   }
 
   .card {
-    @apply bg-navy-850 rounded-xl p-6 border border-navy-200/15;
+    @apply bg-white rounded-xl p-6 border border-gray-200 shadow-sm;
   }
 
   .label {
-    @apply block text-sm font-medium text-blue-200/70 mb-1;
+    @apply block text-sm font-medium text-gray-700 mb-1;
   }
 }

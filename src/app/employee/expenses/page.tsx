@@ -125,8 +125,8 @@ export default function EmployeeExpenses() {
     <ProtectedRoute allowedRoles={['employee']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Expenses</h1>
-          <p className="text-blue-200/70">Record expenses paid from your accounts for the day.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
+          <p className="text-gray-500">Record expenses paid from your accounts for the day.</p>
         </div>
 
         {/* Account Balance Cards */}
@@ -135,18 +135,18 @@ export default function EmployeeExpenses() {
             <div key={account.key} className={`rounded-xl border p-4 ${account.bgColor}`}>
               <div className="flex items-center gap-2 mb-2">
                 <AccountIcon type={account.key} className={account.iconColor} />
-                <span className="text-sm font-semibold text-blue-100">{account.label}</span>
+                <span className="text-sm font-semibold text-gray-700">{account.label}</span>
               </div>
-              <div className="text-xs text-blue-200/50 mb-1">Received</div>
+              <div className="text-xs text-gray-400 mb-1">Received</div>
               <div className={`text-lg font-bold ${account.color}`}>{account.received.toLocaleString()}</div>
               {account.spent > 0 && (
-                <div className="mt-2 pt-2 border-t border-navy-200/15">
+                <div className="mt-2 pt-2 border-t border-gray-200">
                   <div className="flex justify-between text-xs">
-                    <span className="text-blue-200/50">Spent</span>
+                    <span className="text-gray-400">Spent</span>
                     <span className="text-red-500">-{account.spent.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold mt-1">
-                    <span className="text-blue-200/70">Balance</span>
+                    <span className="text-gray-500">Balance</span>
                     <span className={account.balance >= 0 ? 'text-green-600' : 'text-red-600'}>
                       {account.balance.toLocaleString()}
                     </span>
@@ -171,8 +171,8 @@ export default function EmployeeExpenses() {
             </div>
             {report && (
               <div className="flex-1 text-right">
-                <span className="text-sm text-blue-200/50">Report Total Sales:</span>
-                <span className="ml-2 font-semibold text-white">{Number(report.total_sales).toLocaleString()}</span>
+                <span className="text-sm text-gray-400">Report Total Sales:</span>
+                <span className="ml-2 font-semibold text-gray-900">{Number(report.total_sales).toLocaleString()}</span>
               </div>
             )}
           </div>
@@ -181,15 +181,15 @@ export default function EmployeeExpenses() {
         {loading ? (
           <div className="card text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-blue-200/50 mt-3">Loading...</p>
+            <p className="text-gray-400 mt-3">Loading...</p>
           </div>
         ) : noReport ? (
           <div className="card text-center py-8">
-            <svg className="w-12 h-12 text-gray-300 dark:text-blue-200/70 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-blue-200/50">No sales report found for this date.</p>
-            <p className="text-sm text-gray-400 dark:text-blue-200/50 mt-1">Create a daily report first from the Dashboard, then come back to add expenses.</p>
+            <p className="text-gray-400">No sales report found for this date.</p>
+            <p className="text-sm text-gray-400 mt-1">Create a daily report first from the Dashboard, then come back to add expenses.</p>
           </div>
         ) : (
           <>
@@ -201,14 +201,14 @@ export default function EmployeeExpenses() {
               </div>
 
               {expenses.length === 0 ? (
-                <p className="text-blue-200/50 text-sm py-4 text-center">No expenses yet. Click &quot;+ Add Expense&quot; to get started.</p>
+                <p className="text-gray-400 text-sm py-4 text-center">No expenses yet. Click &quot;+ Add Expense&quot; to get started.</p>
               ) : (
                 <div className="space-y-3">
                   {expenses.map((expense, index) => (
-                    <div key={index} className="p-4 bg-navy-950/50 rounded-lg">
+                    <div key={index} className="p-4 bg-gray-50 rounded-lg">
                       <div className="flex gap-3 items-start">
                         <div className="flex-1">
-                          <label className="text-xs text-blue-200/50 mb-1 block">Description</label>
+                          <label className="text-xs text-gray-400 mb-1 block">Description</label>
                           <input
                             type="text"
                             value={expense.description}
@@ -218,7 +218,7 @@ export default function EmployeeExpenses() {
                           />
                         </div>
                         <div className="w-32">
-                          <label className="text-xs text-blue-200/50 mb-1 block">Amount</label>
+                          <label className="text-xs text-gray-400 mb-1 block">Amount</label>
                           <input
                             type="number"
                             step="0.01"
@@ -230,7 +230,7 @@ export default function EmployeeExpenses() {
                           />
                         </div>
                         <div className="w-44">
-                          <label className="text-xs text-blue-200/50 mb-1 block">Paid From</label>
+                          <label className="text-xs text-gray-400 mb-1 block">Paid From</label>
                           <select
                             value={expense.paid_from}
                             onChange={(e) => updateExpense(index, 'paid_from', e.target.value)}
@@ -247,7 +247,7 @@ export default function EmployeeExpenses() {
                           <button
                             type="button"
                             onClick={() => removeExpense(index)}
-                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -261,7 +261,7 @@ export default function EmployeeExpenses() {
               )}
 
               {expenses.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-navy-200/15 flex justify-between items-center">
+                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
                   <p className="font-semibold">Total Expenses: <span className="text-red-600">{totalExpenses.toLocaleString()}</span></p>
                   <button
                     onClick={handleSave}
@@ -274,7 +274,7 @@ export default function EmployeeExpenses() {
               )}
 
               {expenses.length === 0 && (
-                <div className="mt-4 pt-4 border-t border-navy-200/15 flex justify-end">
+                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
                   <button
                     onClick={handleSave}
                     disabled={saving}

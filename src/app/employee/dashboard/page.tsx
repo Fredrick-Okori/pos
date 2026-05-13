@@ -192,7 +192,8 @@ export default function EmployeeDashboard() {
     reconDiff > 0 ? 'EXCESS' : 'SHORTAGE'
 
   // Determine whether the form should be locked for this employee
-  const isReportLocked = !!(existingReport?.is_locked && profile?.role !== 'superadmin')
+  // Disable form if a report exists for the selected date (regardless of lock status)
+  const isReportLocked = !!existingReport
 
   // Calculate per-account expense totals
   const expensesByAccount = ACCOUNTS.reduce((acc, account) => {
@@ -205,87 +206,57 @@ export default function EmployeeDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
+    if (existingReport) {
+      toast.error('A report already exists for this date. Select a different date.')
+      return
+    }
     setSaving(true)
     try {
-      let reportId = existingReport?.id
-      if (existingReport) {
-        const { error } = await supabase
-          .from('daily_reports')
-          .update({
-            total_sales: formData.total_sales,
-            airtel_money: formData.airtel_money,
-            mtn_money: formData.mtn_money,
-            visa_card: formData.visa_card,
-            cash: formData.cash,
-            complementaries: formData.complementaries,
-            discounts: formData.discounts,
-            stanbic: formData.stanbic,
-            usd_amount: formData.usd_amount,
-            exchange_rate: formData.exchange_rate,
-            bar_sales: formData.bar_sales,
-            kitchen_sales: formData.kitchen_sales,
-            shisha_sales: formData.shisha_sales,
-            recon_status: reconStatus,
-            recon_diff: Math.round(reconDiff),
-            is_locked: true,
-            locked_by: profile?.full_name ?? null,
-            locked_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingReport.id)
+      const { data, error } = await supabase
+        .from('daily_reports')
+        .insert({
+          user_id: user.id,
+          organization_id: selectedOrg?.id || profile?.organization_id || null,
+          report_date: formData.report_date,
+          total_sales: formData.total_sales,
+          airtel_money: formData.airtel_money,
+          mtn_money: formData.mtn_money,
+          visa_card: formData.visa_card,
+          cash: formData.cash,
+          complementaries: formData.complementaries,
+          discounts: formData.discounts,
+          stanbic: formData.stanbic,
+          usd_amount: formData.usd_amount,
+          exchange_rate: formData.exchange_rate,
+          bar_sales: formData.bar_sales,
+          kitchen_sales: formData.kitchen_sales,
+          shisha_sales: formData.shisha_sales,
+          recon_status: reconStatus,
+          recon_diff: Math.round(reconDiff),
+          is_locked: true,
+          locked_by: profile?.full_name ?? null,
+          locked_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+      if (error) throw error
+
+      const reportId = data.id
+      const expenses = formData.expenses
+        .filter(exp => exp.description && exp.amount > 0)
+        .map(exp => ({ report_id: reportId, description: exp.description, amount: exp.amount, paid_from: exp.paid_from }))
+      if (expenses.length > 0) {
+        const { error } = await supabase.from('expenses').insert(expenses)
         if (error) throw error
-        await supabase.from('expenses').delete().eq('report_id', existingReport.id)
-        await supabase.from('unpaid_bills').delete().eq('report_id', existingReport.id)
-      } else {
-        const { data, error } = await supabase
-          .from('daily_reports')
-          .insert({
-            user_id: user.id,
-            organization_id: selectedOrg?.id || profile?.organization_id || null,
-            report_date: formData.report_date,
-            total_sales: formData.total_sales,
-            airtel_money: formData.airtel_money,
-            mtn_money: formData.mtn_money,
-            visa_card: formData.visa_card,
-            cash: formData.cash,
-            complementaries: formData.complementaries,
-            discounts: formData.discounts,
-            stanbic: formData.stanbic,
-            usd_amount: formData.usd_amount,
-            exchange_rate: formData.exchange_rate,
-            bar_sales: formData.bar_sales,
-            kitchen_sales: formData.kitchen_sales,
-            shisha_sales: formData.shisha_sales,
-            recon_status: reconStatus,
-            recon_diff: Math.round(reconDiff),
-            is_locked: true,
-            locked_by: profile?.full_name ?? null,
-            locked_at: new Date().toISOString()
-          })
-          .select()
-          .single()
+      }
+      const bills = formData.unpaid_bills
+        .filter(bill => bill.customer_name && bill.amount > 0)
+        .map(bill => ({ report_id: reportId, customer_name: bill.customer_name, amount: bill.amount, notes: bill.notes || null }))
+      if (bills.length > 0) {
+        const { error } = await supabase.from('unpaid_bills').insert(bills)
         if (error) throw error
-        reportId = data.id
       }
-      if (formData.expenses.length > 0) {
-        const expenses = formData.expenses
-          .filter(exp => exp.description && exp.amount > 0)
-          .map(exp => ({ report_id: reportId, description: exp.description, amount: exp.amount, paid_from: exp.paid_from }))
-        if (expenses.length > 0) {
-          const { error } = await supabase.from('expenses').insert(expenses)
-          if (error) throw error
-        }
-      }
-      if (formData.unpaid_bills.length > 0) {
-        const bills = formData.unpaid_bills
-          .filter(bill => bill.customer_name && bill.amount > 0)
-          .map(bill => ({ report_id: reportId, customer_name: bill.customer_name, amount: bill.amount, notes: bill.notes || null }))
-        if (bills.length > 0) {
-          const { error } = await supabase.from('unpaid_bills').insert(bills)
-          if (error) throw error
-        }
-      }
-      toast.success(existingReport ? 'Report updated successfully!' : 'Report saved successfully!')
+      toast.success('Report saved and locked!')
       fetchReports()
       fetchReportForDate(selectedDate)
     } catch (error: any) {
@@ -300,8 +271,8 @@ export default function EmployeeDashboard() {
     <ProtectedRoute allowedRoles={['employee']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Daily Sales Report</h1>
-          <p className="text-blue-200/70">Welcome, {profile?.full_name}! Enter your daily sales data below.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Daily Sales Report</h1>
+          <p className="text-gray-500">Welcome, {profile?.full_name}! Enter your daily sales data below.</p>
         </div>
 
         {/* Account Cards */}
@@ -314,19 +285,19 @@ export default function EmployeeDashboard() {
               <div key={account.key} className={`rounded-xl border p-4 ${account.bgColor}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <AccountIcon type={account.key} className={account.iconColor} />
-                  <span className="text-sm font-semibold text-blue-100">{account.label}</span>
+                  <span className="text-sm font-semibold text-gray-700">{account.label}</span>
                 </div>
                 <div className={`text-2xl font-bold ${account.color}`}>
                   {value.toLocaleString()}
                 </div>
                 {spent > 0 && (
-                  <div className="mt-2 pt-2 border-t border-navy-200/15">
+                  <div className="mt-2 pt-2 border-t border-gray-200">
                     <div className="flex justify-between text-xs">
-                      <span className="text-blue-200/50">Expenses</span>
+                      <span className="text-gray-400">Expenses</span>
                       <span className="text-red-500">-{spent.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-xs font-semibold mt-1">
-                      <span className="text-blue-200/70">Balance</span>
+                      <span className="text-gray-500">Balance</span>
                       <span className={balance >= 0 ? 'text-green-600' : 'text-red-600'}>{balance.toLocaleString()}</span>
                     </div>
                   </div>
@@ -342,15 +313,15 @@ export default function EmployeeDashboard() {
 
               {/* Locked report banner */}
               {isReportLocked && (
-                <div className="rounded-xl p-4 bg-navy-900 border border-navy-200/20 flex items-center gap-3">
-                  <svg className="w-5 h-5 text-blue-200/50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'rgba(201,168,76,.08)', border: '1px solid rgba(201,168,76,.25)' }}>
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="#C9A84C" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  <div>
-                    <p className="text-sm font-semibold text-blue-100">Report Locked</p>
-                    <p className="text-xs text-blue-200/50">This report has been locked and cannot be edited. Contact an admin if changes are needed.</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold" style={{ color: '#E8C97A' }}>Report already submitted for this day</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(232,201,122,.6)' }}>Select a different date above to create a new report for another day.</p>
                   </div>
-                  <span className="ml-auto text-xs font-bold text-blue-200/70 bg-navy-800 px-2 py-1 rounded-full">LOCKED</span>
+                  <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full" style={{ background: 'rgba(201,168,76,.15)', color: '#C9A84C', letterSpacing: '.08em' }}>LOCKED</span>
                 </div>
               )}
 
@@ -362,7 +333,7 @@ export default function EmployeeDashboard() {
                   'bg-red-500/10 border-red-500/40'
                 }`}>
                   <div>
-                    <p className="text-xs text-blue-200/50 mb-1">Reconciliation</p>
+                    <p className="text-xs text-gray-400 mb-1">Reconciliation</p>
                     <p className={`text-lg font-bold ${
                       reconStatus === 'RECONCILED' ? 'text-green-600' :
                       reconStatus === 'EXCESS' ? 'text-amber-600' :
@@ -370,7 +341,7 @@ export default function EmployeeDashboard() {
                     }`}>
                       {reconStatus === 'RECONCILED' ? '✓ RECONCILED' : reconStatus === 'EXCESS' ? '↑ EXCESS' : '↓ SHORTAGE'}
                     </p>
-                    <p className="text-xs text-blue-200/50 font-mono mt-1">
+                    <p className="text-xs text-gray-400 font-mono mt-1">
                       Cash ({totalCash.toLocaleString()}) + Credit ({totalBills.toLocaleString()}) + Expenses ({totalExpenses.toLocaleString()}) + Deductions ({totalDeductions.toLocaleString()}) = {reconCollected.toLocaleString()} | Sales: {formData.total_sales.toLocaleString()}
                     </p>
                   </div>
@@ -382,7 +353,7 @@ export default function EmployeeDashboard() {
                     }`}>
                       {reconDiff > 0 ? '+' : ''}{Math.round(reconDiff).toLocaleString()}
                     </p>
-                    <p className="text-xs text-blue-200/50">{reconStatus === 'RECONCILED' ? 'Balanced' : reconStatus === 'EXCESS' ? 'UGX over' : 'UGX short'}</p>
+                    <p className="text-xs text-gray-400">{reconStatus === 'RECONCILED' ? 'Balanced' : reconStatus === 'EXCESS' ? 'UGX over' : 'UGX short'}</p>
                   </div>
                 </div>
               )}
@@ -397,15 +368,16 @@ export default function EmployeeDashboard() {
                     setFormData(prev => ({ ...prev, report_date: e.target.value }))
                   }}
                   className="input-field w-48"
-                  disabled={isReportLocked}
                 />
                 {existingReport && (
-                  <p className="text-sm text-amber-600 mt-2">A report exists for this date. Saving will update it.</p>
+                  <p className="text-sm mt-2" style={{ color: '#C9A84C' }}>
+                    A report already exists for this date. Choose a different date to create a new report.
+                  </p>
                 )}
                 {existingReport?.admin_comment && (
-                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Admin Comment:</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-400">{existingReport.admin_comment}</p>
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm font-medium text-blue-800">Admin Comment:</p>
+                    <p className="text-sm text-blue-700">{existingReport.admin_comment}</p>
                   </div>
                 )}
               </div>
@@ -427,8 +399,8 @@ export default function EmployeeDashboard() {
                   </div>
                 </div>
                 {/* Sales breakdown (optional) */}
-                <div className="mt-4 pt-4 border-t border-navy-200/15">
-                  <p className="text-sm text-blue-200/50 mb-3">Sales Breakdown (optional)</p>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-400 mb-3">Sales Breakdown (optional)</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="label">Bar Sales</label>
@@ -448,7 +420,7 @@ export default function EmployeeDashboard() {
 
               <div className="card">
                 <h2 className="text-lg font-semibold mb-4">Account Receipts</h2>
-                <p className="text-sm text-blue-200/50 mb-4">How much was received into each account from sales today?</p>
+                <p className="text-sm text-gray-400 mb-4">How much was received into each account from sales today?</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {ACCOUNTS.map((account) => (
                     <div key={account.key}>
@@ -487,8 +459,8 @@ export default function EmployeeDashboard() {
                 </div>
 
                 {/* USD section */}
-                <div className="mt-4 pt-4 border-t border-navy-200/15">
-                  <p className="text-sm text-blue-200/50 mb-3">USD Payments</p>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-400 mb-3">USD Payments</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">USD Amount ($)</label>
@@ -518,7 +490,7 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
                   {formData.usd_amount > 0 && (
-                    <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">
+                    <p className="mt-2 text-sm text-blue-600">
                       USD in UGX: {Math.round(formData.usd_amount * formData.exchange_rate).toLocaleString()} UGX
                     </p>
                   )}
@@ -533,11 +505,11 @@ export default function EmployeeDashboard() {
                   )}
                 </div>
                 {formData.expenses.length === 0 ? (
-                  <p className="text-blue-200/50 text-sm">No expenses added yet.</p>
+                  <p className="text-gray-400 text-sm">No expenses added yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {formData.expenses.map((expense, index) => (
-                      <div key={index} className="p-3 bg-navy-950/50 rounded-lg">
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
                         <div className="flex gap-3 items-start">
                           <div className="flex-1">
                             <input type="text" value={expense.description} onChange={(e) => updateExpense(index, 'description', e.target.value)} className="input-field" placeholder="Expense description" />
@@ -545,7 +517,7 @@ export default function EmployeeDashboard() {
                           <div className="w-32">
                             <input type="number" step="0.01" min="0" value={expense.amount || ''} onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" />
                           </div>
-                          <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                          <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
@@ -561,7 +533,7 @@ export default function EmployeeDashboard() {
                   </div>
                 )}
                 {formData.expenses.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-navy-200/15">
+                  <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-right font-semibold">Total Expenses: <span className="text-red-600">{totalExpenses.toLocaleString()}</span></p>
                   </div>
                 )}
@@ -575,11 +547,11 @@ export default function EmployeeDashboard() {
                   )}
                 </div>
                 {formData.unpaid_bills.length === 0 ? (
-                  <p className="text-blue-200/50 text-sm">No unpaid bills recorded.</p>
+                  <p className="text-gray-400 text-sm">No unpaid bills recorded.</p>
                 ) : (
                   <div className="space-y-3">
                     {formData.unpaid_bills.map((bill, index) => (
-                      <div key={index} className="p-3 bg-navy-950/50 rounded-lg">
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
                         <div className="flex gap-3 items-start">
                           <div className="flex-1">
                             <input type="text" value={bill.customer_name} onChange={(e) => updateUnpaidBill(index, 'customer_name', e.target.value)} className="input-field" placeholder="Customer name" />
@@ -587,7 +559,7 @@ export default function EmployeeDashboard() {
                           <div className="w-32">
                             <input type="number" step="0.01" min="0" value={bill.amount} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" />
                           </div>
-                          <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                          <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
@@ -599,15 +571,16 @@ export default function EmployeeDashboard() {
                   </div>
                 )}
                 {formData.unpaid_bills.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-navy-200/15">
+                  <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-right font-semibold">Total Unpaid: <span className="text-amber-600">{totalUnpaidBills.toLocaleString()}</span></p>
                   </div>
                 )}
               </div>
 
+              {/* Only show submit if no report exists for this date */}
               {!isReportLocked && (
                 <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-lg">
-                  {saving ? 'Saving...' : existingReport ? 'Save & Lock Report' : 'Save & Lock Report'}
+                  {saving ? 'Saving...' : 'Save & Lock Report'}
                 </button>
               )}
             </form>
@@ -617,52 +590,52 @@ export default function EmployeeDashboard() {
             <div className="card sticky top-8">
               <h2 className="text-lg font-semibold mb-4">Daily Summary</h2>
               <div className="space-y-3">
-                <div className="flex justify-between"><span className="text-blue-200/70">Total Sales</span><span className="font-semibold">{Number(formData.total_sales).toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-200/70">Complementaries</span><span className="text-purple-600 dark:text-purple-400">-{Number(formData.complementaries).toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-200/70">Discounts</span><span className="text-orange-600 dark:text-orange-400">-{Number(formData.discounts).toLocaleString()}</span></div>
-                <hr className="border-navy-200/15" />
-                <div className="flex justify-between font-semibold"><span className="dark:text-white">Net Sales</span><span className={netSales >= 0 ? 'text-green-600' : 'text-red-600'}>{netSales.toLocaleString()}</span></div>
-                <hr className="border-navy-200/15" />
-                <p className="text-xs text-blue-200/50 font-medium">Account Receipts:</p>
+                <div className="flex justify-between"><span className="text-gray-500">Total Sales</span><span className="font-semibold">{Number(formData.total_sales).toLocaleString()}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Complementaries</span><span className="text-purple-600">-{Number(formData.complementaries).toLocaleString()}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Discounts</span><span className="text-orange-600">-{Number(formData.discounts).toLocaleString()}</span></div>
+                <hr className="border-gray-200" />
+                <div className="flex justify-between font-semibold"><span className="text-gray-900">Net Sales</span><span className={netSales >= 0 ? 'text-green-600' : 'text-red-600'}>{netSales.toLocaleString()}</span></div>
+                <hr className="border-gray-200" />
+                <p className="text-xs text-gray-400 font-medium">Account Receipts:</p>
                 {ACCOUNTS.map((account) => (
                   <div key={account.key} className="flex justify-between text-sm">
-                    <span className="text-blue-200/70">{account.label}</span>
+                    <span className="text-gray-500">{account.label}</span>
                     <span className={account.color}>{Number(formData[account.key]).toLocaleString()}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm font-semibold border-t border-navy-200/20 pt-2">
-                  <span className="text-blue-200/70">Total Received</span><span className="text-green-600 font-bold">{totalPayments.toLocaleString()}</span>
+                <div className="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2">
+                  <span className="text-gray-500">Total Received</span><span className="text-green-600 font-bold">{totalPayments.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm"><span className="text-blue-200/70">Unpaid Bills</span><span className="text-amber-600">-{totalUnpaidBills.toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-200/70">Total Expenses</span><span className="text-red-600">-{totalExpenses.toLocaleString()}</span></div>
-                <hr className="border-navy-200/15" />
-                <div className="flex justify-between font-bold text-lg"><span className="dark:text-white">Cash at Hand</span><span className={cashAtHand >= 0 ? 'text-green-600' : 'text-red-600'}>{cashAtHand.toLocaleString()}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Unpaid Bills</span><span className="text-amber-600">-{totalUnpaidBills.toLocaleString()}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Total Expenses</span><span className="text-red-600">-{totalExpenses.toLocaleString()}</span></div>
+                <hr className="border-gray-200" />
+                <div className="flex justify-between font-bold text-lg"><span className="text-gray-900">Cash at Hand</span><span className={cashAtHand >= 0 ? 'text-green-600' : 'text-red-600'}>{cashAtHand.toLocaleString()}</span></div>
 
                 {/* Balance Status Banner */}
-                <hr className="border-navy-200/15" />
+                <hr className="border-gray-200" />
                 <div className={`p-3 rounded-lg text-center ${
                   balanceStatus === 'balanced'
-                    ? 'bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200-emerald-800'
+                    ? 'bg-emerald-50 border border-emerald-200-emerald-800'
                     : balanceStatus === 'excess'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200-blue-800'
-                    : 'bg-red-50 dark:bg-red-900/30 border border-red-200-red-800'
+                    ? 'bg-blue-50 border border-blue-200-blue-800'
+                    : 'bg-red-50 border border-red-200-red-800'
                 }`}>
                   <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${
                     balanceStatus === 'balanced' ? 'text-emerald-600'
-                    : balanceStatus === 'excess' ? 'text-blue-600 dark:text-blue-400'
+                    : balanceStatus === 'excess' ? 'text-blue-600'
                     : 'text-red-600'
                   }`}>
                     {balanceStatus === 'balanced' ? 'Balanced' : balanceStatus === 'excess' ? 'Excess' : 'Shortage'}
                   </p>
                   <p className={`text-lg font-bold ${
-                    balanceStatus === 'balanced' ? 'text-emerald-700 dark:text-emerald-300'
-                    : balanceStatus === 'excess' ? 'text-blue-700 dark:text-blue-300'
-                    : 'text-red-700 dark:text-red-300'
+                    balanceStatus === 'balanced' ? 'text-emerald-700'
+                    : balanceStatus === 'excess' ? 'text-blue-700'
+                    : 'text-red-700'
                   }`}>
                     {balanceStatus === 'balanced' ? 'All accounts match' : `${Math.abs(paymentDifference).toLocaleString()}`}
                   </p>
                   {!paymentMatch && (
-                    <p className="text-xs text-blue-200/50 mt-1">
+                    <p className="text-xs text-gray-400 mt-1">
                       {balanceStatus === 'excess' ? 'Payments received exceed net sales' : 'Payments received are less than net sales'}
                     </p>
                   )}
@@ -673,16 +646,16 @@ export default function EmployeeDashboard() {
             <div className="card mt-6">
               <h2 className="text-lg font-semibold mb-4">Recent Reports</h2>
               {loading ? (
-                <p className="text-blue-200/50 text-sm">Loading...</p>
+                <p className="text-gray-400 text-sm">Loading...</p>
               ) : reports.length === 0 ? (
-                <p className="text-blue-200/50 text-sm">No reports yet.</p>
+                <p className="text-gray-400 text-sm">No reports yet.</p>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {reports.slice(0, 10).map((report) => (
-                    <button key={report.id} onClick={() => setSelectedDate(report.report_date)} className={`w-full text-left p-3 rounded-lg transition-colors ${selectedDate === report.report_date ? 'bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200-emerald-700' : 'bg-navy-950/50 hover:bg-navy-900 dark:hover:bg-gray-700'}`}>
+                    <button key={report.id} onClick={() => setSelectedDate(report.report_date)} className={`w-full text-left p-3 rounded-lg transition-colors ${selectedDate === report.report_date ? 'bg-emerald-50 border border-emerald-200-emerald-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
                       <div className="flex justify-between items-center">
                         <span className="font-medium text-sm">{format(new Date(report.report_date), 'MMM dd, yyyy')}</span>
-                        <span className="text-sm text-blue-200/70">{Number(report.total_sales).toLocaleString()}</span>
+                        <span className="text-sm text-gray-500">{Number(report.total_sales).toLocaleString()}</span>
                       </div>
                       {report.is_edited && <span className="text-xs text-amber-600">Edited by admin</span>}
                     </button>
