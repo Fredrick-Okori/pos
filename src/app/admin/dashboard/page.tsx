@@ -9,6 +9,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import toast from 'react-hot-toast'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import Link from 'next/link'
 
 export default function AdminDashboard() {
   const { user, profile } = useAuth()
@@ -25,6 +26,11 @@ export default function AdminDashboard() {
   const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // Unpaid balances (all-time, grouped by customer)
+  const [unpaidGroups, setUnpaidGroups] = useState<{ name: string; total: number; count: number }[]>([])
+  const [unpaidTotal, setUnpaidTotal] = useState(0)
+  const [loadingUnpaid, setLoadingUnpaid] = useState(true)
 
   // Fetch employees
   const fetchEmployees = async () => {
@@ -84,6 +90,50 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchUnpaidBalances = async () => {
+    setLoadingUnpaid(true)
+    try {
+      let query = supabase
+        .from('unpaid_bills')
+        .select(`
+          customer_name,
+          amount,
+          daily_reports!inner (
+            report_date,
+            organization_id
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (selectedOrg) {
+        query = query.eq('daily_reports.organization_id', selectedOrg.id)
+      }
+
+      const { data, error } = await query
+      if (error) {
+        console.error('Unpaid balances query error:', JSON.stringify(error))
+        throw error
+      }
+
+      const groupMap: Record<string, { name: string; total: number; count: number }> = {}
+      for (const bill of (data || []) as any[]) {
+        const key = (bill.customer_name as string).toLowerCase()
+        if (!groupMap[key]) groupMap[key] = { name: bill.customer_name, total: 0, count: 0 }
+        groupMap[key].total += Number(bill.amount)
+        groupMap[key].count += 1
+      }
+
+      const groups = Object.values(groupMap).sort((a, b) => b.total - a.total)
+      setUnpaidGroups(groups)
+      setUnpaidTotal(groups.reduce((s, g) => s + g.total, 0))
+    } catch (err) {
+      console.error('Error fetching unpaid balances:', err)
+      toast.error('Failed to fetch unpaid bills')
+    } finally {
+      setLoadingUnpaid(false)
+    }
+  }
+
   useEffect(() => {
     fetchEmployees()
   }, [selectedOrg?.id])
@@ -91,6 +141,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchReports()
   }, [selectedEmployee, dateRange, selectedOrg?.id])
+
+  useEffect(() => {
+    fetchUnpaidBalances()
+  }, [selectedOrg?.id])
 
   // Calculate summary statistics
   const summary = reports.reduce((acc, report) => ({
@@ -283,6 +337,88 @@ export default function AdminDashboard() {
               <p className="text-sm text-purple-700">Complementaries</p>
               <p className="text-xl font-bold text-purple-800">{summary.complementaries.toLocaleString()}</p>
             </div>
+          </div>
+
+          {/* Outstanding Unpaid Balances */}
+          <div className="card mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Outstanding Unpaid Balances</h2>
+                <p className="text-xs text-gray-400 mt-0.5">All-time — across all reports</p>
+              </div>
+              <Link
+                href="/admin/unpaid-bills"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={{ background: 'rgba(245,158,11,.1)', color: '#b45309', border: '1px solid rgba(245,158,11,.25)' }}
+              >
+                View All →
+              </Link>
+            </div>
+
+            {loadingUnpaid ? (
+              <div className="flex items-center gap-3 py-4 text-gray-400">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : unpaidGroups.length === 0 ? (
+              <div className="flex items-center gap-3 py-4">
+                <svg className="w-8 h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-gray-400">No unpaid balances on record.</p>
+              </div>
+            ) : (
+              <>
+                {/* Total banner */}
+                <div className="flex items-center justify-between p-3 rounded-xl mb-4"
+                  style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)' }}>
+                  <div>
+                    <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Total Outstanding</p>
+                    <p className="text-2xl font-bold font-mono text-amber-700">{unpaidTotal.toLocaleString()} <span className="text-sm font-normal">UGX</span></p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-amber-700">{unpaidGroups.length} client{unpaidGroups.length !== 1 ? 's' : ''} with balance</p>
+                  </div>
+                </div>
+
+                {/* Top customers table */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                        <th className="text-left pb-2 font-medium">Client</th>
+                        <th className="text-center pb-2 font-medium">Bills</th>
+                        <th className="text-right pb-2 font-medium">Amount Owed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {unpaidGroups.slice(0, 8).map(group => (
+                        <tr key={group.name} className="hover:bg-amber-50/40 transition-colors">
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-white font-bold text-xs">
+                                {group.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                              </div>
+                              <span className="font-medium text-gray-900">{group.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-center text-gray-500">{group.count}</td>
+                          <td className="py-2.5 text-right font-bold font-mono text-amber-600">
+                            {group.total.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {unpaidGroups.length > 8 && (
+                    <p className="text-xs text-gray-400 text-center mt-3">
+                      +{unpaidGroups.length - 8} more clients —{' '}
+                      <Link href="/admin/unpaid-bills" className="text-amber-600 hover:underline">view all</Link>
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Reports Table */}

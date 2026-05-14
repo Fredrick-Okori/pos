@@ -36,6 +36,7 @@ export default function EmployeeDashboard() {
     bar_sales: 0,
     kitchen_sales: 0,
     shisha_sales: 0,
+    notes: '',
     expenses: [],
     unpaid_bills: []
   })
@@ -87,6 +88,7 @@ export default function EmployeeDashboard() {
           bar_sales: data.bar_sales ?? 0,
           kitchen_sales: data.kitchen_sales ?? 0,
           shisha_sales: data.shisha_sales ?? 0,
+          notes: data.notes || '',
           expenses: data.expenses?.map((e: any) => ({ description: e.description, amount: e.amount, paid_from: e.paid_from || 'cash' })) || [],
           unpaid_bills: data.unpaid_bills?.map((b: any) => ({ customer_name: b.customer_name, amount: b.amount, notes: b.notes || '' })) || []
         })
@@ -107,6 +109,7 @@ export default function EmployeeDashboard() {
           bar_sales: 0,
           kitchen_sales: 0,
           shisha_sales: 0,
+          notes: '',
           expenses: [],
           unpaid_bills: []
         })
@@ -231,6 +234,7 @@ export default function EmployeeDashboard() {
           bar_sales: formData.bar_sales,
           kitchen_sales: formData.kitchen_sales,
           shisha_sales: formData.shisha_sales,
+          notes: formData.notes || null,
           recon_status: reconStatus,
           recon_diff: Math.round(reconDiff),
           is_locked: true,
@@ -575,6 +579,18 @@ export default function EmployeeDashboard() {
                     <p className="text-right font-semibold">Total Unpaid: <span className="text-amber-600">{totalUnpaidBills.toLocaleString()}</span></p>
                   </div>
                 )}
+              </div>
+
+              {/* Notes */}
+              <div className="card">
+                <h2 className="text-lg font-semibold mb-4">Additional Notes</h2>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  className="input-field h-24 resize-none"
+                  placeholder="Any additional notes for this report..."
+                  disabled={isReportLocked}
+                />
               </div>
 
               {/* Only show submit if no report exists for this date */}

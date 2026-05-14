@@ -53,6 +53,7 @@ export default function ClientStatementPage() {
 
   // Payment modal
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(emptyPaymentForm)
   const [savingPayment, setSavingPayment] = useState(false)
 
@@ -140,6 +141,75 @@ export default function ClientStatementPage() {
     row.runningBalance = running
   })
 
+  const exportPDF = () => {
+    if (!client) return
+    let running = 0
+    const rows = transactions.map(tx => {
+      running += tx.charged - tx.paid
+      const charged = tx.charged > 0 ? tx.charged.toLocaleString() : '–'
+      const paid = tx.paid > 0 ? tx.paid.toLocaleString() : '–'
+      const balColor = running > 0 ? '#dc2626' : '#16a34a'
+      return `<tr>
+        <td>${format(new Date(tx.date), 'MMM dd, yyyy')}</td>
+        <td>${tx.type}</td>
+        <td>${tx.description}</td>
+        <td style="text-align:right;color:${tx.type === 'CHARGE' ? '#dc2626' : 'inherit'}">${charged}</td>
+        <td style="text-align:right;color:${tx.type === 'PAYMENT' ? '#16a34a' : 'inherit'}">${paid}</td>
+        <td style="text-align:right;font-weight:700;color:${balColor}">${running.toLocaleString()}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Statement – ${client.name}</title>
+<style>
+  body{font-family:'Helvetica Neue',sans-serif;font-size:13px;color:#111;padding:40px;max-width:900px;margin:0 auto}
+  h1{font-size:24px;color:#0C2340;margin-bottom:4px}
+  .sub{font-size:11px;color:#666;margin-bottom:28px}
+  .cards{display:flex;gap:20px;margin-bottom:28px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:12px 18px;min-width:130px}
+  .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:20px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  td{padding:8px 10px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  .footer{margin-top:32px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:12px;text-align:center}
+</style></head>
+<body>
+<h1>Account Statement – ${client.name}</h1>
+<div class="sub">Krug Ten Eleven Bar &amp; Restaurant · SEIV System · Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Charged</div><div class="card-val" style="color:#dc2626">${totalCharged.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Paid</div><div class="card-val" style="color:#16a34a">${totalPaid.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Balance Due</div><div class="card-val" style="color:#0C2340">${balance.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${isSettled ? '#16a34a' : '#dc2626'}">${isSettled ? 'SETTLED' : 'OUTSTANDING'}</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th style="text-align:right">Charged (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Running Balance</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">SEIV · Krug Ten Eleven Bar &amp; Restaurant · This is a system-generated statement.</div>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Statement_${client.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Statement downloaded')
+  }
+
+  const emailStatement = () => {
+    if (!client) return
+    const subject = encodeURIComponent(`Account Statement – ${client.name} · Krug Ten Eleven`)
+    const body = encodeURIComponent(
+      `Dear ${client.name},\n\nPlease find your account summary with Krug Ten Eleven Bar & Restaurant.\n\nTotal Charged: UGX ${totalCharged.toLocaleString()}\nTotal Paid:    UGX ${totalPaid.toLocaleString()}\nBalance Due:   UGX ${balance.toLocaleString()}\n\nPlease contact us if you have any questions.\n\nKrug Ten Eleven Bar & Restaurant\nPowered by SEIV`
+    )
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
+
   const handleRecordPayment = async () => {
     if (!paymentForm.amount || Number(paymentForm.amount) <= 0) {
       toast.error('Amount must be greater than 0')
@@ -219,15 +289,35 @@ export default function ClientStatementPage() {
                 Client since {format(new Date(client.created_at), 'MMM dd, yyyy')}
               </p>
             </div>
-            <button
-              onClick={() => setShowPaymentForm(true)}
-              className="btn-primary flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Record Payment
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={emailStatement}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email
+              </button>
+              <button
+                onClick={exportPDF}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </button>
+              <button
+                onClick={() => setShowPaymentForm(true)}
+                className="btn-primary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Record Payment
+              </button>
+            </div>
           </div>
         </div>
 

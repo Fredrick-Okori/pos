@@ -53,6 +53,7 @@ export interface DailyReport {
   is_locked: boolean
   locked_by: string | null
   locked_at: string | null
+  notes: string | null
   // Joined data
   profiles?: Profile
   expenses?: Expense[]
@@ -103,6 +104,7 @@ export interface ReportFormData {
   bar_sales: number
   kitchen_sales: number
   shisha_sales: number
+  notes: string
   expenses: { description: string; amount: number; paid_from: AccountType }[]
   unpaid_bills: { customer_name: string; amount: number; notes: string }[]
 }
