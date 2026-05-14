@@ -516,17 +516,19 @@ export default function EmployeeDashboard() {
                       <div key={index} className="p-3 bg-gray-50 rounded-lg">
                         <div className="flex gap-3 items-start">
                           <div className="flex-1">
-                            <input type="text" value={expense.description} onChange={(e) => updateExpense(index, 'description', e.target.value)} className="input-field" placeholder="Expense description" />
+                            <input type="text" value={expense.description} onChange={(e) => updateExpense(index, 'description', e.target.value)} className="input-field" placeholder="Expense description" disabled={isReportLocked} />
                           </div>
                           <div className="w-32">
-                            <input type="number" step="0.01" min="0" value={expense.amount || ''} onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" />
+                            <input type="number" step="0.01" min="0" value={expense.amount || ''} onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
                           </div>
-                          <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                          {!isReportLocked && (
+                            <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          )}
                         </div>
                         <div className="mt-2">
-                          <select value={expense.paid_from} onChange={(e) => updateExpense(index, 'paid_from', e.target.value)} className="input-field text-sm">
+                          <select value={expense.paid_from} onChange={(e) => updateExpense(index, 'paid_from', e.target.value)} className="input-field text-sm" disabled={isReportLocked}>
                             {ACCOUNTS.map((account) => (
                               <option key={account.key} value={account.key}>{account.label}</option>
                             ))}
@@ -558,17 +560,19 @@ export default function EmployeeDashboard() {
                       <div key={index} className="p-3 bg-gray-50 rounded-lg">
                         <div className="flex gap-3 items-start">
                           <div className="flex-1">
-                            <input type="text" value={bill.customer_name} onChange={(e) => updateUnpaidBill(index, 'customer_name', e.target.value)} className="input-field" placeholder="Customer name" />
+                            <input type="text" value={bill.customer_name} onChange={(e) => updateUnpaidBill(index, 'customer_name', e.target.value)} className="input-field" placeholder="Customer name" disabled={isReportLocked} />
                           </div>
                           <div className="w-32">
-                            <input type="number" step="0.01" min="0" value={bill.amount} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" />
+                            <input type="number" step="0.01" min="0" value={bill.amount} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
                           </div>
-                          <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                          {!isReportLocked && (
+                            <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          )}
                         </div>
                         <div className="mt-2">
-                          <input type="text" value={bill.notes} onChange={(e) => updateUnpaidBill(index, 'notes', e.target.value)} className="input-field text-sm" placeholder="Notes (optional)" />
+                          <input type="text" value={bill.notes} onChange={(e) => updateUnpaidBill(index, 'notes', e.target.value)} className="input-field text-sm" placeholder="Notes (optional)" disabled={isReportLocked} />
                         </div>
                       </div>
                     ))}
