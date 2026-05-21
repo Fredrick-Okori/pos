@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -73,6 +73,15 @@ export default function DashboardLayout({ children }: SidebarProps) {
   ]
 
   const menuItems = isAdmin ? adminMenuItems : employeeMenuItems
+
+  useEffect(() => {
+    const handler = () => {
+      const el = document.activeElement
+      if (el instanceof HTMLInputElement && el.type === 'number') el.blur()
+    }
+    document.addEventListener('wheel', handler, { passive: true })
+    return () => document.removeEventListener('wheel', handler)
+  }, [])
 
   const handleSignOut = async () => {
     await signOut()

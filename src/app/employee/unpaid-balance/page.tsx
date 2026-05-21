@@ -27,6 +27,13 @@ interface CustomerGroup {
   bills: UnpaidBillRow[]
 }
 
+interface PaymentState {
+  customer: CustomerGroup
+  amount: string
+  notes: string
+  submitting: boolean
+}
+
 export default function EmployeeUnpaidBalancePage() {
   const supabase = createClient()
   const { selectedOrg } = useOrganization()
@@ -36,6 +43,7 @@ export default function EmployeeUnpaidBalancePage() {
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
+  const [payment, setPayment] = useState<PaymentState | null>(null)
 
   const fetchBills = async () => {
     setLoading(true)
@@ -62,7 +70,6 @@ export default function EmployeeUnpaidBalancePage() {
         console.error('Supabase error:', JSON.stringify(error))
         throw error
       }
-      if (error) throw error
       setBills(data || [])
     } catch (err) {
       console.error('Error fetching unpaid bills:', err)
@@ -84,7 +91,6 @@ export default function EmployeeUnpaidBalancePage() {
 
   const totalOutstanding = filtered.reduce((s, b) => s + Number(b.amount), 0)
 
-  // Group by customer name
   const customerGroups: CustomerGroup[] = Object.values(
     filtered.reduce((acc, bill) => {
       const key = bill.customer_name.toLowerCase()
@@ -97,6 +103,68 @@ export default function EmployeeUnpaidBalancePage() {
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  const openPaymentModal = (customer: CustomerGroup, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPayment({ customer, amount: '', notes: '', submitting: false })
+  }
+
+  const handlePaymentSubmit = async () => {
+    if (!payment) return
+    const amt = parseFloat(payment.amount)
+    if (!amt || amt <= 0) {
+      toast.error('Enter a valid payment amount')
+      return
+    }
+    if (amt > payment.customer.total) {
+      toast.error('Payment exceeds total balance')
+      return
+    }
+
+    setPayment(p => p ? { ...p, submitting: true } : null)
+
+    try {
+      // Sort bills oldest first so we clear the earliest debt first
+      const sorted = [...payment.customer.bills].sort(
+        (a, b) => new Date(a.daily_reports.report_date).getTime() - new Date(b.daily_reports.report_date).getTime()
+      )
+
+      let remaining = amt
+
+      for (const bill of sorted) {
+        if (remaining <= 0) break
+        const billAmt = Number(bill.amount)
+
+        if (remaining >= billAmt) {
+          // Fully covers this bill — delete it
+          const { error } = await supabase.from('unpaid_bills').delete().eq('id', bill.id)
+          if (error) throw error
+          remaining -= billAmt
+        } else {
+          // Partially covers this bill — reduce the amount
+          const { error } = await supabase
+            .from('unpaid_bills')
+            .update({ amount: billAmt - remaining })
+            .eq('id', bill.id)
+          if (error) throw error
+          remaining = 0
+        }
+      }
+
+      const isFullPayment = amt >= payment.customer.total
+      toast.success(
+        isFullPayment
+          ? `${payment.customer.name}'s balance fully cleared`
+          : `Payment of ${amt.toLocaleString()} UGX recorded`
+      )
+      setPayment(null)
+      await fetchBills()
+    } catch (err) {
+      console.error('Payment error:', err)
+      toast.error('Failed to record payment')
+      setPayment(p => p ? { ...p, submitting: false } : null)
+    }
+  }
 
   return (
     <ProtectedRoute allowedRoles={['employee']}>
@@ -163,35 +231,46 @@ export default function EmployeeUnpaidBalancePage() {
               return (
                 <div key={customer.name} className="card overflow-hidden">
                   {/* Customer row */}
-                  <button
-                    onClick={() => setExpandedCustomer(isExpanded ? null : customer.name)}
-                    className="w-full flex items-center gap-4 text-left"
-                  >
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 font-bold text-white text-sm">
-                      {getInitials(customer.name)}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900">{customer.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {customer.bills.length} unpaid bill{customer.bills.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <p className="text-xl font-bold font-mono text-amber-600">
-                        {customer.total.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-gray-400">UGX owed</p>
-                    </div>
-
-                    <svg
-                      className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setExpandedCustomer(isExpanded ? null : customer.name)}
+                      className="flex items-center gap-4 text-left flex-1 min-w-0"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 font-bold text-white text-sm">
+                        {getInitials(customer.name)}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900">{customer.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {customer.bills.length} unpaid bill{customer.bills.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="text-xl font-bold font-mono text-amber-600">
+                          {customer.total.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-400">UGX owed</p>
+                      </div>
+
+                      <svg
+                        className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Record Payment button */}
+                    <button
+                      onClick={(e) => openPaymentModal(customer, e)}
+                      className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
+                    >
+                      Record Payment
+                    </button>
+                  </div>
 
                   {/* Bill breakdown */}
                   {isExpanded && (
@@ -221,18 +300,132 @@ export default function EmployeeUnpaidBalancePage() {
                         </tbody>
                         <tfoot>
                           <tr className="border-t border-gray-200">
-                            <td colSpan={3} className="pt-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</td>
+                            <td colSpan={2} className="pt-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</td>
                             <td className="pt-3 text-right font-bold font-mono text-amber-700">
                               {customer.total.toLocaleString()}
                             </td>
                           </tr>
                         </tfoot>
                       </table>
+
+                      <button
+                        onClick={(e) => openPaymentModal(customer, e)}
+                        className="mt-4 w-full py-2 rounded-lg text-sm font-semibold transition-all"
+                        style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.25)' }}
+                      >
+                        Record Payment for {customer.name}
+                      </button>
                     </div>
                   )}
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* Payment Modal */}
+        {payment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              {/* Modal header */}
+              <div className="px-6 py-5 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                    {getInitials(payment.customer.name)}
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-lg leading-tight">Record Payment</h2>
+                    <p className="text-sm text-gray-500">{payment.customer.name}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                {/* Balance summary */}
+                <div className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,.07)', border: '1px solid rgba(245,158,11,.2)' }}>
+                  <p className="text-xs text-amber-700 mb-1">Total Outstanding Balance</p>
+                  <p className="text-3xl font-bold font-mono text-amber-600">
+                    {payment.customer.total.toLocaleString()} <span className="text-base font-normal">UGX</span>
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1 opacity-70">
+                    {payment.customer.bills.length} bill{payment.customer.bills.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                {/* Payment amount */}
+                <div>
+                  <label className="label">Payment Amount (UGX)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={payment.amount}
+                      onChange={e => setPayment(p => p ? { ...p, amount: e.target.value } : null)}
+                      placeholder=""
+                      className="input-field flex-1"
+                      autoFocus
+                      onWheel={e => e.currentTarget.blur()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPayment(p => p ? { ...p, amount: String(p.customer.total) } : null)}
+                      className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold"
+                      style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
+                    >
+                      Pay in Full
+                    </button>
+                  </div>
+
+                  {/* Remaining after payment preview */}
+                  {payment.amount && parseFloat(payment.amount) > 0 && (
+                    <div className="mt-2 text-sm">
+                      {parseFloat(payment.amount) >= payment.customer.total ? (
+                        <p className="text-green-600 font-medium">Balance will be fully cleared</p>
+                      ) : (
+                        <p className="text-gray-500">
+                          Remaining after payment:{' '}
+                          <span className="font-semibold text-amber-600">
+                            {(payment.customer.total - parseFloat(payment.amount)).toLocaleString()} UGX
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="label">Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={payment.notes}
+                    onChange={e => setPayment(p => p ? { ...p, notes: e.target.value } : null)}
+                    placeholder="e.g. Cash payment, bank transfer..."
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              {/* Modal footer */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => setPayment(null)}
+                  disabled={payment.submitting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePaymentSubmit}
+                  disabled={payment.submitting || !payment.amount || parseFloat(payment.amount) <= 0}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: '#059669' }}
+                >
+                  {payment.submitting ? 'Recording...' : 'Confirm Payment'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </DashboardLayout>

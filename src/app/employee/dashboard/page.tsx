@@ -20,6 +20,8 @@ export default function EmployeeDashboard() {
   const [reports, setReports] = useState<DailyReport[]>([])
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [existingReport, setExistingReport] = useState<DailyReport | null>(null)
+  const [customerNames, setCustomerNames] = useState<string[]>([])
+  const [openAcIndex, setOpenAcIndex] = useState<number | null>(null)
 
   const [formData, setFormData] = useState<ReportFormData>({
     report_date: format(new Date(), 'yyyy-MM-dd'),
@@ -119,8 +121,34 @@ export default function EmployeeDashboard() {
     }
   }
 
+  const fetchCustomerNames = async () => {
+    try {
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      let query = supabase
+        .from('unpaid_bills')
+        .select('customer_name, daily_reports!inner(organization_id)')
+
+      if (orgId) query = query.eq('daily_reports.organization_id', orgId)
+
+      const { data } = await query
+      if (data) {
+        const seen = new Set<string>()
+        const unique = (data as any[]).map(r => r.customer_name as string).filter(n => {
+          if (!n || seen.has(n)) return false
+          seen.add(n)
+          return true
+        })
+          .sort((a, b) => a.localeCompare(b))
+        setCustomerNames(unique)
+      }
+    } catch {
+      // silently ignore — autocomplete is non-critical
+    }
+  }
+
   useEffect(() => {
     fetchReports()
+    fetchCustomerNames()
   }, [user])
 
   useEffect(() => {
@@ -391,15 +419,15 @@ export default function EmployeeDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Total Sales</label>
-                    <input type="number" step="0.01" min="0" value={formData.total_sales || ''} onChange={(e) => handleInputChange('total_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                    <input type="number" step="0.01" min="0" value={formData.total_sales || ''} onChange={(e) => handleInputChange('total_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                   </div>
                   <div>
                     <label className="label">Discounts Given</label>
-                    <input type="number" step="0.01" min="0" value={formData.discounts || ''} onChange={(e) => handleInputChange('discounts', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                    <input type="number" step="0.01" min="0" value={formData.discounts || ''} onChange={(e) => handleInputChange('discounts', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                   </div>
                   <div>
                     <label className="label">Complementaries</label>
-                    <input type="number" step="0.01" min="0" value={formData.complementaries || ''} onChange={(e) => handleInputChange('complementaries', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                    <input type="number" step="0.01" min="0" value={formData.complementaries || ''} onChange={(e) => handleInputChange('complementaries', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                   </div>
                 </div>
                 {/* Sales breakdown (optional) */}
@@ -408,15 +436,15 @@ export default function EmployeeDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="label">Bar Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.bar_sales || ''} onChange={(e) => handleInputChange('bar_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                      <input type="number" step="0.01" min="0" value={formData.bar_sales || ''} onChange={(e) => handleInputChange('bar_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                     </div>
                     <div>
                       <label className="label">Kitchen Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.kitchen_sales || ''} onChange={(e) => handleInputChange('kitchen_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                      <input type="number" step="0.01" min="0" value={formData.kitchen_sales || ''} onChange={(e) => handleInputChange('kitchen_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                     </div>
                     <div>
                       <label className="label">Shisha Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.shisha_sales || ''} onChange={(e) => handleInputChange('shisha_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="0.00" disabled={isReportLocked} />
+                      <input type="number" step="0.01" min="0" value={formData.shisha_sales || ''} onChange={(e) => handleInputChange('shisha_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
                     </div>
                   </div>
                 </div>
@@ -441,7 +469,7 @@ export default function EmployeeDashboard() {
                         value={formData[account.key] || ''}
                         onChange={(e) => handleInputChange(account.key, parseFloat(e.target.value) || 0)}
                         className="input-field"
-                        placeholder="0.00"
+                        placeholder=""
                         disabled={isReportLocked}
                       />
                     </div>
@@ -456,7 +484,7 @@ export default function EmployeeDashboard() {
                       value={formData.stanbic || ''}
                       onChange={(e) => handleInputChange('stanbic', parseFloat(e.target.value) || 0)}
                       className="input-field"
-                      placeholder="0.00"
+                      placeholder=""
                       disabled={isReportLocked}
                     />
                   </div>
@@ -475,7 +503,7 @@ export default function EmployeeDashboard() {
                         value={formData.usd_amount || ''}
                         onChange={(e) => handleInputChange('usd_amount', parseFloat(e.target.value) || 0)}
                         className="input-field"
-                        placeholder="0.00"
+                        placeholder=""
                         disabled={isReportLocked}
                       />
                     </div>
@@ -556,26 +584,66 @@ export default function EmployeeDashboard() {
                   <p className="text-gray-400 text-sm">No unpaid bills recorded.</p>
                 ) : (
                   <div className="space-y-3">
-                    {formData.unpaid_bills.map((bill, index) => (
-                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex gap-3 items-start">
-                          <div className="flex-1">
-                            <input type="text" value={bill.customer_name} onChange={(e) => updateUnpaidBill(index, 'customer_name', e.target.value)} className="input-field" placeholder="Customer name" disabled={isReportLocked} />
+                    {formData.unpaid_bills.map((bill, index) => {
+                      const query = bill.customer_name.toLowerCase()
+                      const suggestions = query
+                        ? customerNames.filter(n => n.toLowerCase().includes(query) && n.toLowerCase() !== query)
+                        : customerNames
+                      const isOpen = openAcIndex === index && !isReportLocked && suggestions.length > 0
+
+                      return (
+                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex gap-3 items-start">
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                value={bill.customer_name}
+                                onChange={(e) => {
+                                  updateUnpaidBill(index, 'customer_name', e.target.value)
+                                  setOpenAcIndex(index)
+                                }}
+                                onFocus={() => setOpenAcIndex(index)}
+                                onBlur={() => setTimeout(() => setOpenAcIndex(null), 150)}
+                                className="input-field"
+                                placeholder="Customer name"
+                                disabled={isReportLocked}
+                                autoComplete="off"
+                              />
+                              {isOpen && (
+                                <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-44 overflow-y-auto">
+                                  {suggestions.map(name => (
+                                    <li
+                                      key={name}
+                                      onMouseDown={() => {
+                                        updateUnpaidBill(index, 'customer_name', name)
+                                        setOpenAcIndex(null)
+                                      }}
+                                      className="px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 cursor-pointer flex items-center gap-2"
+                                    >
+                                      <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-semibold text-xs flex items-center justify-center shrink-0">
+                                        {name.charAt(0).toUpperCase()}
+                                      </span>
+                                      {name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                            <div className="w-32">
+                              <input type="number" step="0.01" min="0" value={bill.amount || ''} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
+                            </div>
+                            {!isReportLocked && (
+                              <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            )}
                           </div>
-                          <div className="w-32">
-                            <input type="number" step="0.01" min="0" value={bill.amount} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
+                          <div className="mt-2">
+                            <input type="text" value={bill.notes} onChange={(e) => updateUnpaidBill(index, 'notes', e.target.value)} className="input-field text-sm" placeholder="Notes (optional)" disabled={isReportLocked} />
                           </div>
-                          {!isReportLocked && (
-                            <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          )}
                         </div>
-                        <div className="mt-2">
-                          <input type="text" value={bill.notes} onChange={(e) => updateUnpaidBill(index, 'notes', e.target.value)} className="input-field text-sm" placeholder="Notes (optional)" disabled={isReportLocked} />
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
                 {formData.unpaid_bills.length > 0 && (
