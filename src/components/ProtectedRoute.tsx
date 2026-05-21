@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/login')
+        router.push('/')
       } else if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
         // Redirect based on role
         if (profile.role === 'superadmin') {
