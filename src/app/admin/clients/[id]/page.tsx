@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Client, ClientCharge, ClientPayment } from '@/types'
+import { Client, ClientCharge, ClientPayment, PaymentMode } from '@/types'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
@@ -18,16 +18,26 @@ interface TransactionRow {
   date: string
   type: 'CHARGE' | 'PAYMENT'
   description: string
+  paymentMode: PaymentMode | null
   charged: number
   paid: number
   // computed running balance (set after sort)
   runningBalance: number
 }
 
+const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  cash: 'Cash',
+  airtel_money: 'Airtel Money',
+  mtn_money: 'MTN Money',
+  visa_card: 'Visa Card',
+  stanbic: 'Stanbic',
+}
+
 // Payment form state
 interface PaymentFormState {
   date: string
   amount: string
+  payment_mode: PaymentMode | ''
   note: string
   linked_charge_id: string
 }
@@ -35,6 +45,7 @@ interface PaymentFormState {
 const emptyPaymentForm: PaymentFormState = {
   date: format(new Date(), 'yyyy-MM-dd'),
   amount: '',
+  payment_mode: '',
   note: '',
   linked_charge_id: ''
 }
@@ -112,6 +123,7 @@ export default function ClientStatementPage() {
       date: c.date,
       type: 'CHARGE',
       description: c.note || 'Charge',
+      paymentMode: null,
       charged: Number(c.amount),
       paid: 0,
       runningBalance: 0
@@ -121,6 +133,7 @@ export default function ClientStatementPage() {
       date: p.date,
       type: 'PAYMENT',
       description: p.note || 'Payment',
+      paymentMode: p.payment_mode ?? null,
       charged: 0,
       paid: Number(p.amount),
       runningBalance: 0
@@ -149,10 +162,12 @@ export default function ClientStatementPage() {
       const charged = tx.charged > 0 ? tx.charged.toLocaleString() : '–'
       const paid = tx.paid > 0 ? tx.paid.toLocaleString() : '–'
       const balColor = running > 0 ? '#dc2626' : '#16a34a'
+      const mode = tx.paymentMode ? PAYMENT_MODE_LABELS[tx.paymentMode] : '–'
       return `<tr>
         <td>${format(new Date(tx.date), 'MMM dd, yyyy')}</td>
         <td>${tx.type}</td>
         <td>${tx.description}</td>
+        <td>${mode}</td>
         <td style="text-align:right;color:${tx.type === 'CHARGE' ? '#dc2626' : 'inherit'}">${charged}</td>
         <td style="text-align:right;color:${tx.type === 'PAYMENT' ? '#16a34a' : 'inherit'}">${paid}</td>
         <td style="text-align:right;font-weight:700;color:${balColor}">${running.toLocaleString()}</td>
@@ -185,7 +200,7 @@ export default function ClientStatementPage() {
   <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${isSettled ? '#16a34a' : '#dc2626'}">${isSettled ? 'SETTLED' : 'OUTSTANDING'}</div></div>
 </div>
 <table>
-  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th style="text-align:right">Charged (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Running Balance</th></tr></thead>
+  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Mode</th><th style="text-align:right">Charged (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Running Balance</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <div class="footer">SEIV · Krug Ten Eleven Bar &amp; Restaurant · This is a system-generated statement.</div>
@@ -215,6 +230,10 @@ export default function ClientStatementPage() {
       toast.error('Amount must be greater than 0')
       return
     }
+    if (!paymentForm.payment_mode) {
+      toast.error('Please select a payment mode')
+      return
+    }
     setSavingPayment(true)
     try {
       const orgId = selectedOrg?.id || profile?.organization_id || null
@@ -225,6 +244,7 @@ export default function ClientStatementPage() {
           organization_id: orgId,
           date: paymentForm.date,
           amount: Number(paymentForm.amount),
+          payment_mode: paymentForm.payment_mode,
           note: paymentForm.note.trim(),
           linked_charge_id: paymentForm.linked_charge_id || null,
           added_by: profile?.id || null
@@ -363,6 +383,7 @@ export default function ClientStatementPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Mode</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Charged (UGX)</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Paid (UGX)</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Running Balance</th>
@@ -385,6 +406,9 @@ export default function ClientStatementPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
                         {row.description}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {row.paymentMode ? PAYMENT_MODE_LABELS[row.paymentMode] : '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-red-600">
                         {row.charged > 0 ? row.charged.toLocaleString() : '-'}
@@ -448,13 +472,29 @@ export default function ClientStatementPage() {
                 </div>
 
                 <div>
-                  <label className="label">Note (optional)</label>
+                  <label className="label">Payment Mode</label>
+                  <select
+                    value={paymentForm.payment_mode}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, payment_mode: e.target.value as PaymentMode | '' }))}
+                    className="input-field"
+                  >
+                    <option value="">— Select mode —</option>
+                    <option value="cash">Cash</option>
+                    <option value="airtel_money">Airtel Money</option>
+                    <option value="mtn_money">MTN Money</option>
+                    <option value="visa_card">Visa Card</option>
+                    <option value="stanbic">Stanbic</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Notes (optional)</label>
                   <input
                     type="text"
                     value={paymentForm.note}
                     onChange={(e) => setPaymentForm(prev => ({ ...prev, note: e.target.value }))}
                     className="input-field"
-                    placeholder="e.g. Cash payment at front desk"
+                    placeholder="e.g. Payment at front desk"
                   />
                 </div>
 

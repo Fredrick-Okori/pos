@@ -37,8 +37,12 @@ CREATE TABLE IF NOT EXISTS client_payments (
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   amount NUMERIC NOT NULL,
+  payment_mode VARCHAR(20) DEFAULT NULL,
   note TEXT DEFAULT '',
   linked_charge_id UUID REFERENCES client_charges(id) ON DELETE SET NULL,
   added_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- If the table already exists, add the column
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(20) DEFAULT NULL;

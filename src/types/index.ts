@@ -130,6 +130,8 @@ export interface ClientCharge {
   created_at: string
 }
 
+export type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
+
 export interface ClientPayment {
   id: string
   client_id: string
@@ -137,6 +139,7 @@ export interface ClientPayment {
   date: string
   amount: number
   note: string
+  payment_mode: PaymentMode | null
   linked_charge_id: string | null
   added_by: string | null
   created_at: string
