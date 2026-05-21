@@ -177,20 +177,25 @@ export default function ClientStatementPage() {
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Statement – ${client.name}</title>
 <style>
-  body{font-family:'Helvetica Neue',sans-serif;font-size:13px;color:#111;padding:40px;max-width:900px;margin:0 auto}
-  h1{font-size:24px;color:#0C2340;margin-bottom:4px}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:900px;margin:0 auto}
+  h1{font-size:24px;color:#0C2340;margin-bottom:4px;font-weight:700}
   .sub{font-size:11px;color:#666;margin-bottom:28px}
-  .cards{display:flex;gap:20px;margin-bottom:28px;flex-wrap:wrap}
-  .card{background:#f4f8ff;border-radius:8px;padding:12px 18px;min-width:130px}
+  .cards{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:12px 18px;min-width:130px;border:1px solid #e2e8f0}
   .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
   .card-val{font-size:20px;font-weight:700}
   table{width:100%;border-collapse:collapse;font-size:12px}
   th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
   td{padding:8px 10px;border-bottom:1px solid #eee}
   tr:last-child td{border-bottom:none}
+  tr:hover td{background:#f9fafb}
   .footer{margin-top:32px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:12px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:24px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.01em}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:20px}@page{margin:15mm}}
 </style></head>
 <body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
 <h1>Account Statement – ${client.name}</h1>
 <div class="sub">Krug Ten Eleven Bar &amp; Restaurant · SEIV System · Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
 <div class="cards">
@@ -204,16 +209,14 @@ export default function ClientStatementPage() {
   <tbody>${rows}</tbody>
 </table>
 <div class="footer">SEIV · Krug Ten Eleven Bar &amp; Restaurant · This is a system-generated statement.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
 </body></html>`
 
     const blob = new Blob([html], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Statement_${client.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.html`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('Statement downloaded')
+    const win = window.open(url, '_blank', 'width=960,height=720')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
   const emailStatement = () => {

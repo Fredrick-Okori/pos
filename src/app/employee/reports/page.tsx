@@ -45,12 +45,114 @@ export default function EmployeeReports() {
     fetchReports()
   }, [user])
 
+  const totalSales = reports.reduce((s, r) => s + Number(r.total_sales), 0)
+  const totalExpenses = reports.reduce((s, r) => s + (r.expenses?.reduce((e, x) => e + Number(x.amount), 0) || 0), 0)
+  const totalUnpaid = reports.reduce((s, r) => s + (r.unpaid_bills?.reduce((e, x) => e + Number(x.amount), 0) || 0), 0)
+  const totalCash = reports.reduce((s, r) => s + Number(r.cash_at_hand), 0)
+
+  const exportPDF = () => {
+    const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = reports.map(r => {
+      const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
+      const unpaid = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+      return `<tr>
+        <td>${format(new Date(r.report_date), 'MMM dd, yyyy')}</td>
+        <td>${format(new Date(r.report_date), 'EEEE')}</td>
+        <td style="text-align:right;font-weight:600">${Number(r.total_sales).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${Number(r.cash_at_hand).toLocaleString()}</td>
+        <td style="text-align:right;color:#d97706">${expenses.toLocaleString()}</td>
+        <td style="text-align:right;color:#dc2626">${unpaid.toLocaleString()}</td>
+        <td style="text-align:center;font-size:10px;font-weight:600;color:${r.is_edited ? '#d97706' : '#16a34a'}">${r.is_edited ? 'EDITED' : 'ORIGINAL'}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>My Sales Reports – Krug Ten Eleven</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:36px;max-width:900px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:22px}
+  .cards{display:flex;gap:14px;margin-bottom:26px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:11px 16px;min-width:120px;border:1px solid #e2e8f0}
+  .card-label{font-size:9px;color:#666;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:18px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  th.r{text-align:right}th.c{text-align:center}
+  td{padding:7px 10px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#fafafa}
+  .footer{margin-top:26px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:22px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:16px}@page{margin:12mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>My Daily Sales Reports</h1>
+<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Reports</div><div class="card-val">${reports.length}</div></div>
+  <div class="card"><div class="card-label">Total Sales</div><div class="card-val" style="color:#16a34a">${totalSales.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Cash at Hand</div><div class="card-val" style="color:#059669">${totalCash.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Expenses</div><div class="card-val" style="color:#d97706">${totalExpenses.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Credit Sales</div><div class="card-val" style="color:#dc2626">${totalUnpaid.toLocaleString()} UGX</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Day</th><th class="r">Total Sales</th><th class="r">Cash at Hand</th><th class="r">Expenses</th><th class="r">Credit Sales</th><th class="c">Status</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated report.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=960,height=720')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  const emailSummary = () => {
+    const subject = encodeURIComponent('My Sales Reports Summary · Krug Ten Eleven')
+    const body = encodeURIComponent(
+      `My Daily Sales Reports – Krug Ten Eleven Bar & Restaurant\n` +
+      `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+      `Total Reports:   ${reports.length}\n` +
+      `Total Sales:     UGX ${totalSales.toLocaleString()}\n` +
+      `Cash at Hand:    UGX ${totalCash.toLocaleString()}\n` +
+      `Total Expenses:  UGX ${totalExpenses.toLocaleString()}\n` +
+      `Credit Sales:    UGX ${totalUnpaid.toLocaleString()}\n` +
+      `Edited Reports:  ${reports.filter(r => r.is_edited).length}\n\n` +
+      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+    )
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
+
   return (
     <ProtectedRoute allowedRoles={['employee']}>
       <DashboardLayout>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">My Reports</h1>
-          <p className="text-gray-500">View all your submitted daily sales reports</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">My Reports</h1>
+            <p className="text-gray-500">View all your submitted daily sales reports</p>
+          </div>
+          {reports.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={emailSummary} className="btn-secondary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email
+              </button>
+              <button onClick={exportPDF} className="btn-secondary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Summary Stats */}

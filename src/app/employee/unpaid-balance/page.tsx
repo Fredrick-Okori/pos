@@ -9,6 +9,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
+type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
+
+const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  cash: 'Cash',
+  airtel_money: 'Airtel Money',
+  mtn_money: 'MTN Money',
+  visa_card: 'Visa Card',
+  stanbic: 'Stanbic',
+}
+
 interface UnpaidBillRow {
   id: string
   customer_name: string
@@ -29,7 +39,9 @@ interface CustomerGroup {
 
 interface PaymentState {
   customer: CustomerGroup
+  date: string
   amount: string
+  payment_mode: PaymentMode | ''
   notes: string
   submitting: boolean
 }
@@ -99,14 +111,22 @@ export default function EmployeeUnpaidBalancePage() {
       acc[key].total += Number(bill.amount)
       return acc
     }, {} as Record<string, CustomerGroup>)
-  ).sort((a, b) => b.total - a.total)
+  ).sort((a, b) => {
+    // Outstanding customers first, cleared (total=0) at the bottom
+    if (a.total === 0 && b.total > 0) return 1
+    if (a.total > 0 && b.total === 0) return -1
+    return b.total - a.total
+  })
+
+  const owingCount = customerGroups.filter(cg => cg.total > 0).length
+  const clearedCount = customerGroups.filter(cg => cg.total === 0).length
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   const openPaymentModal = (customer: CustomerGroup, e: React.MouseEvent) => {
     e.stopPropagation()
-    setPayment({ customer, amount: '', notes: '', submitting: false })
+    setPayment({ customer, date: format(new Date(), 'yyyy-MM-dd'), amount: '', payment_mode: '', notes: '', submitting: false })
   }
 
   const handlePaymentSubmit = async () => {
@@ -114,6 +134,10 @@ export default function EmployeeUnpaidBalancePage() {
     const amt = parseFloat(payment.amount)
     if (!amt || amt <= 0) {
       toast.error('Enter a valid payment amount')
+      return
+    }
+    if (!payment.payment_mode) {
+      toast.error('Please select a payment mode')
       return
     }
     if (amt > payment.customer.total) {
@@ -136,8 +160,8 @@ export default function EmployeeUnpaidBalancePage() {
         const billAmt = Number(bill.amount)
 
         if (remaining >= billAmt) {
-          // Fully covers this bill — delete it
-          const { error } = await supabase.from('unpaid_bills').delete().eq('id', bill.id)
+          // Fully covers this bill — zero it out (keep record so customer stays visible)
+          const { error } = await supabase.from('unpaid_bills').update({ amount: 0 }).eq('id', bill.id)
           if (error) throw error
           remaining -= billAmt
         } else {
@@ -166,13 +190,119 @@ export default function EmployeeUnpaidBalancePage() {
     }
   }
 
+  const exportBalances = () => {
+    const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = customerGroups.map(cg => {
+      const billRows = cg.bills.map(b => `
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #f0f0f0">${b.daily_reports.report_date}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;color:#666">${b.notes || '–'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#dc2626;font-weight:600">${Number(b.amount).toLocaleString()}</td>
+        </tr>`).join('')
+      return `
+        <tr style="background:#f8f9fa">
+          <td colspan="3" style="padding:10px 10px 6px;font-weight:700;font-size:14px;color:#0C2340;border-top:2px solid #e2e8f0">
+            ${cg.name}
+            <span style="margin-left:8px;font-size:11px;font-weight:400;color:#888">${cg.bills.length} bill${cg.bills.length !== 1 ? 's' : ''}</span>
+            <span style="float:right;color:#d97706;font-weight:700;font-size:15px">${cg.total.toLocaleString()} UGX</span>
+          </td>
+        </tr>
+        ${billRows}`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Outstanding Balances – Krug Ten Eleven</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:800px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:24px}
+  .cards{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:12px 18px;min-width:120px;border:1px solid #e2e8f0}
+  .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:19px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  th:last-child{text-align:right}
+  .footer{margin-top:32px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:12px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:24px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:20px}@page{margin:15mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Outstanding Balances</h1>
+<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Outstanding</div><div class="card-val" style="color:#dc2626">${totalOutstanding.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Clients Owing</div><div class="card-val" style="color:#0C2340">${customerGroups.length}</div></div>
+  <div class="card"><div class="card-label">Total Bills</div><div class="card-val" style="color:#0C2340">${filtered.length}</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Notes</th><th style="text-align:right">Amount (UGX)</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated report.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=900,height=700')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  const emailBalances = () => {
+    const list = customerGroups
+      .slice(0, 20)
+      .map(cg => `  ${cg.name}: UGX ${cg.total.toLocaleString()} (${cg.bills.length} bill${cg.bills.length !== 1 ? 's' : ''})`)
+      .join('\n')
+    const subject = encodeURIComponent('Outstanding Balances · Krug Ten Eleven')
+    const body = encodeURIComponent(
+      `Outstanding Balances – Krug Ten Eleven Bar & Restaurant\n` +
+      `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+      `Total Outstanding: UGX ${totalOutstanding.toLocaleString()}\n` +
+      `Clients Owing:     ${customerGroups.length}\n` +
+      `Total Bills:       ${filtered.length}\n\n` +
+      `Breakdown:\n${list}\n\n` +
+      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+    )
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
+
   return (
     <ProtectedRoute allowedRoles={['employee']}>
       <DashboardLayout>
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Client Balances</h1>
-          <p className="text-gray-500">Clients with unpaid bills from daily reports</p>
+        <div className="flex items-start justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Client Balances</h1>
+            <p className="text-gray-500">Clients with unpaid bills from daily reports</p>
+          </div>
+          {customerGroups.length > 0 && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={emailBalances}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
+                style={{ borderColor: 'rgba(12,35,64,.2)', color: '#0C2340' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email
+              </button>
+              <button
+                onClick={exportBalances}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
+                style={{ borderColor: 'rgba(12,35,64,.2)', color: '#0C2340' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Summary stats */}
@@ -186,11 +316,11 @@ export default function EmployeeUnpaidBalancePage() {
           </div>
           <div className="card">
             <p className="text-sm text-gray-500">Clients Owing</p>
-            <p className="text-3xl font-bold text-gray-900">{customerGroups.length}</p>
+            <p className="text-3xl font-bold text-gray-900">{owingCount}</p>
           </div>
-          <div className="card">
-            <p className="text-sm text-gray-500">Total Bills</p>
-            <p className="text-3xl font-bold text-gray-900">{filtered.length}</p>
+          <div className="card" style={{ background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.2)' }}>
+            <p className="text-sm" style={{ color: '#065f46' }}>Clients Cleared</p>
+            <p className="text-3xl font-bold" style={{ color: '#059669' }}>{clearedCount}</p>
           </div>
         </div>
 
@@ -227,31 +357,40 @@ export default function EmployeeUnpaidBalancePage() {
           <div className="space-y-3">
             {customerGroups.map(customer => {
               const isExpanded = expandedCustomer === customer.name
+              const isCleared = customer.total === 0
 
               return (
-                <div key={customer.name} className="card overflow-hidden">
+                <div key={customer.name} className={`card overflow-hidden ${isCleared ? 'opacity-75' : ''}`}>
                   {/* Customer row */}
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setExpandedCustomer(isExpanded ? null : customer.name)}
                       className="flex items-center gap-4 text-left flex-1 min-w-0"
                     >
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 font-bold text-white text-sm">
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-white text-sm ${isCleared ? 'bg-gradient-to-br from-green-400 to-emerald-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
                         {getInitials(customer.name)}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900">{customer.name}</p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {customer.bills.length} unpaid bill{customer.bills.length !== 1 ? 's' : ''}
+                          {customer.bills.length} bill{customer.bills.length !== 1 ? 's' : ''}
                         </p>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <p className="text-xl font-bold font-mono text-amber-600">
-                          {customer.total.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-gray-400">UGX owed</p>
+                        {isCleared ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                            ✓ Cleared
+                          </span>
+                        ) : (
+                          <>
+                            <p className="text-xl font-bold font-mono text-amber-600">
+                              {customer.total.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-400">UGX owed</p>
+                          </>
+                        )}
                       </div>
 
                       <svg
@@ -262,14 +401,16 @@ export default function EmployeeUnpaidBalancePage() {
                       </svg>
                     </button>
 
-                    {/* Record Payment button */}
-                    <button
-                      onClick={(e) => openPaymentModal(customer, e)}
-                      className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                      style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
-                    >
-                      Record Payment
-                    </button>
+                    {/* Record Payment button — hidden for cleared clients */}
+                    {!isCleared && (
+                      <button
+                        onClick={(e) => openPaymentModal(customer, e)}
+                        className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
+                      >
+                        Record Payment
+                      </button>
+                    )}
                   </div>
 
                   {/* Bill breakdown */}
@@ -292,8 +433,8 @@ export default function EmployeeUnpaidBalancePage() {
                               <td className="py-2 text-gray-500">
                                 {bill.notes || '–'}
                               </td>
-                              <td className="py-2 text-right font-medium font-mono text-amber-600">
-                                {Number(bill.amount).toLocaleString()}
+                              <td className={`py-2 text-right font-medium font-mono ${Number(bill.amount) === 0 ? 'text-green-600' : 'text-amber-600'}`}>
+                                {Number(bill.amount) === 0 ? 'PAID' : Number(bill.amount).toLocaleString()}
                               </td>
                             </tr>
                           ))}
@@ -308,13 +449,15 @@ export default function EmployeeUnpaidBalancePage() {
                         </tfoot>
                       </table>
 
-                      <button
-                        onClick={(e) => openPaymentModal(customer, e)}
-                        className="mt-4 w-full py-2 rounded-lg text-sm font-semibold transition-all"
-                        style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.25)' }}
-                      >
-                        Record Payment for {customer.name}
-                      </button>
+                      {!isCleared && (
+                        <button
+                          onClick={(e) => openPaymentModal(customer, e)}
+                          className="mt-4 w-full py-2 rounded-lg text-sm font-semibold transition-all"
+                          style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.25)' }}
+                        >
+                          Record Payment for {customer.name}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -326,11 +469,12 @@ export default function EmployeeUnpaidBalancePage() {
         {/* Payment Modal */}
         {payment && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              {/* Modal header */}
-              <div className="px-6 py-5 border-b border-gray-100">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
                     {getInitials(payment.customer.name)}
                   </div>
                   <div>
@@ -338,23 +482,62 @@ export default function EmployeeUnpaidBalancePage() {
                     <p className="text-sm text-gray-500">{payment.customer.name}</p>
                   </div>
                 </div>
+                <button
+                  onClick={() => setPayment(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="px-6 py-5 space-y-5">
-                {/* Balance summary */}
-                <div className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,.07)', border: '1px solid rgba(245,158,11,.2)' }}>
-                  <p className="text-xs text-amber-700 mb-1">Total Outstanding Balance</p>
-                  <p className="text-3xl font-bold font-mono text-amber-600">
-                    {payment.customer.total.toLocaleString()} <span className="text-base font-normal">UGX</span>
-                  </p>
-                  <p className="text-xs text-amber-600 mt-1 opacity-70">
-                    {payment.customer.bills.length} bill{payment.customer.bills.length !== 1 ? 's' : ''}
+              {/* Outstanding balance banner */}
+              <div className="mx-6 mb-5 rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' }}>
+                <div>
+                  <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Outstanding Balance</p>
+                  <p className="text-2xl font-bold font-mono text-amber-600 mt-0.5">
+                    {payment.customer.total.toLocaleString()} <span className="text-sm font-normal">UGX</span>
                   </p>
                 </div>
+                <span className="text-xs text-amber-600 opacity-70 text-right">
+                  {payment.customer.bills.length} bill{payment.customer.bills.length !== 1 ? 's' : ''}
+                </span>
+              </div>
 
-                {/* Payment amount */}
+              <div className="px-6 pb-5 space-y-4">
+
+                {/* Date + Mode — side by side */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Date</label>
+                    <input
+                      type="date"
+                      value={payment.date}
+                      onChange={e => setPayment(p => p ? { ...p, date: e.target.value } : null)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Mode of Payment</label>
+                    <select
+                      value={payment.payment_mode}
+                      onChange={e => setPayment(p => p ? { ...p, payment_mode: e.target.value as PaymentMode | '' } : null)}
+                      className="input-field"
+                    >
+                      <option value="">— Select —</option>
+                      <option value="cash">Cash</option>
+                      <option value="airtel_money">Airtel Money</option>
+                      <option value="mtn_money">MTN Money</option>
+                      <option value="visa_card">Visa Card</option>
+                      <option value="stanbic">Stanbic</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Amount */}
                 <div>
-                  <label className="label">Payment Amount (UGX)</label>
+                  <label className="label">Amount (UGX)</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -362,7 +545,7 @@ export default function EmployeeUnpaidBalancePage() {
                       step="0.01"
                       value={payment.amount}
                       onChange={e => setPayment(p => p ? { ...p, amount: e.target.value } : null)}
-                      placeholder=""
+                      placeholder="0"
                       className="input-field flex-1"
                       autoFocus
                       onWheel={e => e.currentTarget.blur()}
@@ -370,44 +553,35 @@ export default function EmployeeUnpaidBalancePage() {
                     <button
                       type="button"
                       onClick={() => setPayment(p => p ? { ...p, amount: String(p.customer.total) } : null)}
-                      className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold"
+                      className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"
                       style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
                     >
                       Pay in Full
                     </button>
                   </div>
-
-                  {/* Remaining after payment preview */}
                   {payment.amount && parseFloat(payment.amount) > 0 && (
-                    <div className="mt-2 text-sm">
-                      {parseFloat(payment.amount) >= payment.customer.total ? (
-                        <p className="text-green-600 font-medium">Balance will be fully cleared</p>
-                      ) : (
-                        <p className="text-gray-500">
-                          Remaining after payment:{' '}
-                          <span className="font-semibold text-amber-600">
-                            {(payment.customer.total - parseFloat(payment.amount)).toLocaleString()} UGX
-                          </span>
-                        </p>
-                      )}
-                    </div>
+                    <p className={`mt-1.5 text-sm font-medium ${parseFloat(payment.amount) >= payment.customer.total ? 'text-green-600' : 'text-amber-600'}`}>
+                      {parseFloat(payment.amount) >= payment.customer.total
+                        ? 'Balance will be fully cleared'
+                        : `Remaining: ${(payment.customer.total - parseFloat(payment.amount)).toLocaleString()} UGX`}
+                    </p>
                   )}
                 </div>
 
                 {/* Notes */}
                 <div>
-                  <label className="label">Notes (optional)</label>
+                  <label className="label">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
                   <input
                     type="text"
                     value={payment.notes}
                     onChange={e => setPayment(p => p ? { ...p, notes: e.target.value } : null)}
-                    placeholder="e.g. Cash payment, bank transfer..."
+                    placeholder="Any additional remarks..."
                     className="input-field"
                   />
                 </div>
               </div>
 
-              {/* Modal footer */}
+              {/* Footer */}
               <div className="px-6 pb-6 flex gap-3">
                 <button
                   onClick={() => setPayment(null)}
@@ -418,7 +592,7 @@ export default function EmployeeUnpaidBalancePage() {
                 </button>
                 <button
                   onClick={handlePaymentSubmit}
-                  disabled={payment.submitting || !payment.amount || parseFloat(payment.amount) <= 0}
+                  disabled={payment.submitting || !payment.amount || parseFloat(payment.amount) <= 0 || !payment.payment_mode}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
                   style={{ background: '#059669' }}
                 >

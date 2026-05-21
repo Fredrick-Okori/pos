@@ -86,6 +86,117 @@ export default function AdminReports() {
     }
   }
 
+  const exportPDF = () => {
+    const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = filteredReports.map(r => {
+      const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
+      const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+      const diff = r.recon_diff || 0
+      const diffStr = diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'
+      const diffColor = diff > 0 ? '#d97706' : diff < 0 ? '#dc2626' : '#16a34a'
+      const reconColor = r.recon_status === 'RECONCILED' ? '#16a34a' : r.recon_status === 'EXCESS' ? '#d97706' : '#dc2626'
+      return `<tr>
+        <td>${format(new Date(r.report_date), 'MMM dd, yyyy')}</td>
+        <td>${(r as any).profiles?.full_name || 'Unknown'}</td>
+        <td style="text-align:right;font-weight:600">${Number(r.total_sales).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${Number(r.cash).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${Number(r.airtel_money).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${Number(r.mtn_money).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${Number(r.visa_card).toLocaleString()}</td>
+        <td style="text-align:right;color:#666">${Number(r.complementaries).toLocaleString()}</td>
+        <td style="text-align:right;color:#666">${Number(r.discounts).toLocaleString()}</td>
+        <td style="text-align:right;color:#d97706">${expenses.toLocaleString()}</td>
+        <td style="text-align:right;color:#dc2626">${credit.toLocaleString()}</td>
+        <td style="text-align:center;font-size:10px;font-weight:700;color:${reconColor}">${r.recon_status || '–'}</td>
+        <td style="text-align:right;font-weight:600;color:${diffColor}">${diffStr}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Daily Sales Reports – Krug Ten Eleven</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#111;padding:32px;max-width:1100px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:20px}
+  .cards{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:10px 16px;min-width:120px;border:1px solid #e2e8f0}
+  .card-label{font-size:9px;color:#666;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:17px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{text-align:left;padding:7px 8px;background:#0C2340;color:#fff;font-size:10px;font-weight:600;white-space:nowrap}
+  th.r{text-align:right}th.c{text-align:center}
+  td{padding:6px 8px;border-bottom:1px solid #eee;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#fafafa}
+  .totals-row td{background:#0C2340!important;color:#fff;font-weight:700;font-size:11px}
+  .footer{margin-top:24px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:12px}@page{margin:10mm;size:landscape}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Daily Sales Reports</h1>
+<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date} &middot; Period: ${dateRange.start} to ${dateRange.end}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Sales</div><div class="card-val" style="color:#0C2340">${totals.sales.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Cash Collected</div><div class="card-val" style="color:#16a34a">${totals.cash.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Airtel + MTN</div><div class="card-val" style="color:#16a34a">${(totals.airtel + totals.mtn).toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Expenses</div><div class="card-val" style="color:#d97706">${totals.expenses.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Credit Sales</div><div class="card-val" style="color:#dc2626">${totals.credit.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Days Shown</div><div class="card-val">${filteredReports.length}</div></div>
+</div>
+<table>
+  <thead>
+    <tr class="totals-row">
+      <td colspan="2">TOTALS</td>
+      <td style="text-align:right">${totals.sales.toLocaleString()}</td>
+      <td style="text-align:right">${totals.cash.toLocaleString()}</td>
+      <td style="text-align:right">${totals.airtel.toLocaleString()}</td>
+      <td style="text-align:right">${totals.mtn.toLocaleString()}</td>
+      <td style="text-align:right">${totals.visa.toLocaleString()}</td>
+      <td style="text-align:right">${totals.comp.toLocaleString()}</td>
+      <td style="text-align:right">${totals.disc.toLocaleString()}</td>
+      <td style="text-align:right">${totals.expenses.toLocaleString()}</td>
+      <td style="text-align:right">${totals.credit.toLocaleString()}</td>
+      <td colspan="2"></td>
+    </tr>
+    <tr><th>Date</th><th>Employee</th><th class="r">Total Sales</th><th class="r">Cash</th><th class="r">Airtel</th><th class="r">MTN</th><th class="r">Visa</th><th class="r">Comp</th><th class="r">Disc</th><th class="r">Expenses</th><th class="r">Credit</th><th class="c">Recon</th><th class="r">Diff</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated report.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=1100,height=750')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  const emailSummary = () => {
+    const subject = encodeURIComponent(`Daily Sales Summary · ${dateRange.start} to ${dateRange.end} · Krug Ten Eleven`)
+    const body = encodeURIComponent(
+      `Daily Sales Summary – Krug Ten Eleven Bar & Restaurant\n` +
+      `Period: ${dateRange.start} to ${dateRange.end}\n` +
+      `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+      `Total Sales:      UGX ${totals.sales.toLocaleString()}\n` +
+      `Cash Collected:   UGX ${totals.cash.toLocaleString()}\n` +
+      `Airtel Money:     UGX ${totals.airtel.toLocaleString()}\n` +
+      `MTN Money:        UGX ${totals.mtn.toLocaleString()}\n` +
+      `Visa Card:        UGX ${totals.visa.toLocaleString()}\n` +
+      `Complementaries:  UGX ${totals.comp.toLocaleString()}\n` +
+      `Discounts:        UGX ${totals.disc.toLocaleString()}\n` +
+      `Total Expenses:   UGX ${totals.expenses.toLocaleString()}\n` +
+      `Credit Sales:     UGX ${totals.credit.toLocaleString()}\n` +
+      `Days Reported:    ${filteredReports.length}\n\n` +
+      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+    )
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
+
   const exportToCSV = () => {
     const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'Stanbic', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
     const rows = filteredReports.map(r => {
@@ -150,7 +261,26 @@ export default function AdminReports() {
             <h1 className="text-2xl font-bold text-gray-900">All Reports</h1>
             <p className="text-gray-500">View and export all employee sales reports</p>
           </div>
-          <button onClick={exportToCSV} className="btn-primary">Export CSV</button>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={emailSummary} className="btn-secondary flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Email
+            </button>
+            <button onClick={exportPDF} className="btn-secondary flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </button>
+            <button onClick={exportToCSV} className="btn-primary flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Summary strip */}

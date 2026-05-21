@@ -43,6 +43,7 @@ export default function AdminClientsPage() {
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<ClientWithBalance[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'outstanding' | 'settled'>('all')
 
   // Modal state
   const [showAddChargeModal, setShowAddChargeModal] = useState(false)
@@ -113,10 +114,6 @@ export default function AdminClientsPage() {
     setNameSuggestions(matches)
   }, [chargeForm.clientName, clients])
 
-  const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
   const handleAddCharge = async () => {
     if (!chargeForm.clientName.trim()) {
       toast.error('Client name is required')
@@ -175,35 +172,175 @@ export default function AdminClientsPage() {
 
   // Initials helper
   const getInitials = (name: string) =>
-    name
-      .split(' ')
-      .map(w => w[0])
+    name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  // Summary totals
+  const totalOutstanding = clients.reduce((s, c) => s + (c.balance > 0 ? c.balance : 0), 0)
+  const totalCharged = clients.reduce((s, c) => s + c.totalCharged, 0)
+  const totalPaid = clients.reduce((s, c) => s + c.totalPaid, 0)
+  const outstandingCount = clients.filter(c => c.balance > 0).length
+  const settledCount = clients.filter(c => c.balance <= 0).length
+
+  const filteredClients = clients.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'outstanding' && c.balance > 0) ||
+      (filterStatus === 'settled' && c.balance <= 0)
+    return matchesSearch && matchesStatus
+  })
+
+  const exportLedger = () => {
+    const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = clients
+      .sort((a, b) => b.balance - a.balance)
+      .map(c => `
+        <tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:500">${c.name}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right">${c.totalCharged.toLocaleString()}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;color:#16a34a">${c.totalPaid.toLocaleString()}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:${c.balance > 0 ? '#dc2626' : '#16a34a'}">${c.balance.toLocaleString()}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">
+            <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:${c.balance <= 0 ? 'rgba(22,163,74,.12)' : 'rgba(220,38,38,.12)'};color:${c.balance <= 0 ? '#16a34a' : '#dc2626'}">
+              ${c.balance <= 0 ? 'SETTLED' : 'OUTSTANDING'}
+            </span>
+          </td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;color:#666">${c.transactionCount}</td>
+        </tr>`)
       .join('')
-      .toUpperCase()
-      .slice(0, 2)
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Client Ledger – Krug Ten Eleven</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:960px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:24px}
+  .cards{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:12px 18px;min-width:130px;border:1px solid #e2e8f0}
+  .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:19px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  th.r{text-align:right}th.c{text-align:center}
+  tr:hover td{background:#f9fafb}
+  .footer{margin-top:32px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:12px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:24px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:20px}@page{margin:15mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Client Ledger Overview</h1>
+<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Charged</div><div class="card-val" style="color:#0C2340">${totalCharged.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Paid</div><div class="card-val" style="color:#16a34a">${totalPaid.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Outstanding</div><div class="card-val" style="color:#dc2626">${totalOutstanding.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Clients</div><div class="card-val">${clients.length} total &middot; ${outstandingCount} owing</div></div>
+</div>
+<table>
+  <thead><tr><th>Client</th><th class="r">Total Charged (UGX)</th><th class="r">Total Paid (UGX)</th><th class="r">Balance (UGX)</th><th class="c">Status</th><th class="c">Transactions</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated ledger overview.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=960,height=720')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  const emailLedger = () => {
+    const owingList = clients
+      .filter(c => c.balance > 0)
+      .sort((a, b) => b.balance - a.balance)
+      .slice(0, 15)
+      .map(c => `  ${c.name}: UGX ${c.balance.toLocaleString()}`)
+      .join('\n')
+    const subject = encodeURIComponent('Client Ledger Summary · Krug Ten Eleven')
+    const body = encodeURIComponent(
+      `Client Ledger Summary – Krug Ten Eleven Bar & Restaurant\n` +
+      `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+      `Total Charged:     UGX ${totalCharged.toLocaleString()}\n` +
+      `Total Paid:        UGX ${totalPaid.toLocaleString()}\n` +
+      `Total Outstanding: UGX ${totalOutstanding.toLocaleString()}\n` +
+      `Clients Owing:     ${outstandingCount} of ${clients.length}\n\n` +
+      `Outstanding Clients:\n${owingList || '  None'}\n\n` +
+      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+    )
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
 
   return (
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Client Ledger</h1>
             <p className="text-gray-500">Track charges and payments for client accounts</p>
           </div>
-          <button
-            onClick={() => setShowAddChargeModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Client Charge
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={emailLedger}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Email
+            </button>
+            <button
+              onClick={exportLedger}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </button>
+            <button
+              onClick={() => setShowAddChargeModal(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Client Charge
+            </button>
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="card mb-6">
-          <div className="relative">
+        {/* Summary strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="card">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Charged</p>
+            <p className="text-xl font-bold text-gray-900 font-mono">{totalCharged.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-0.5">UGX</p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Paid</p>
+            <p className="text-xl font-bold text-green-600 font-mono">{totalPaid.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-0.5">UGX</p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Outstanding</p>
+            <p className="text-xl font-bold text-red-600 font-mono">{totalOutstanding.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{outstandingCount} client{outstandingCount !== 1 ? 's' : ''} owing</p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Settled</p>
+            <p className="text-xl font-bold text-gray-900">{settledCount}</p>
+            <p className="text-xs text-gray-400 mt-0.5">of {clients.length} clients</p>
+          </div>
+        </div>
+
+        {/* Search + Filter */}
+        <div className="card mb-6 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -214,6 +351,21 @@ export default function AdminClientsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field pl-12"
             />
+          </div>
+          <div className="flex gap-1 shrink-0">
+            {(['all', 'outstanding', 'settled'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                  filterStatus === s
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
           </div>
         </div>
 
