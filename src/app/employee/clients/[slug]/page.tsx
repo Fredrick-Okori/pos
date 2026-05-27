@@ -52,7 +52,7 @@ interface PaymentState {
 }
 
 // Derive slug from a phone number: "+256700000000" → "256700000000"
-export function phoneToSlug(phone: string): string {
+function phoneToSlug(phone: string): string {
   return phone.replace(/[^0-9]/g, '')
 }
 

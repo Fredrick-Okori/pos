@@ -58,7 +58,6 @@ export default function EmployeeUnpaidBalancePage() {
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
   const [clientsMap, setClientsMap] = useState<Record<string, { id: string; phone: string | null; email: string | null }>>({})
   const [searchTerm, setSearchTerm] = useState('')
-  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
   const [payment, setPayment] = useState<PaymentState | null>(null)
 
   const fetchBills = async () => {
@@ -144,6 +143,9 @@ export default function EmployeeUnpaidBalancePage() {
 
   const owingCount = customerGroups.filter(cg => cg.total > 0).length
   const clearedCount = customerGroups.filter(cg => cg.total === 0).length
+
+  const nameToSlug = (name: string) =>
+    name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -377,7 +379,7 @@ export default function EmployeeUnpaidBalancePage() {
           </div>
         </div>
 
-        {/* Client groups */}
+        {/* Client table */}
         {loading ? (
           <div className="card text-center py-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
@@ -391,130 +393,98 @@ export default function EmployeeUnpaidBalancePage() {
             <p className="text-gray-400">{searchTerm ? 'No clients match your search.' : 'No unpaid bills found.'}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {customerGroups.map(customer => {
-              const isExpanded = expandedCustomer === customer.name
-              const isCleared = customer.total === 0
-              const clientEntry = clientsMap[customer.name.toLowerCase()]
-
-              return (
-                <div key={customer.name} className={`card overflow-hidden ${isCleared ? 'opacity-75' : ''}`}>
-                  {/* Customer row */}
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => setExpandedCustomer(isExpanded ? null : customer.name)}
-                      className="flex items-center gap-4 text-left flex-1 min-w-0"
+          <div className="card overflow-hidden p-0">
+            <table className="min-w-full">
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bills</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Balance (UGX)</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {customerGroups.map(customer => {
+                  const isCleared = customer.total === 0
+                  const clientEntry = clientsMap[customer.name.toLowerCase()]
+                  return (
+                    <tr
+                      key={customer.name}
+                      onClick={() => router.push(`/employee/unpaid-balance/${nameToSlug(customer.name)}`)}
+                      className={`cursor-pointer transition-colors hover:bg-amber-50/60 ${isCleared ? 'opacity-60' : ''}`}
                     >
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-white text-sm ${isCleared ? 'bg-gradient-to-br from-green-400 to-emerald-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
-                        {getInitials(customer.name)}
-                      </div>
+                      {/* Name */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-white text-xs ${isCleared ? 'bg-gradient-to-br from-green-400 to-emerald-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
+                            {getInitials(customer.name)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm">{customer.name}</p>
+                            {clientEntry && (
+                              <p className="text-xs text-gray-400 mt-0.5">Registered client</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
 
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900">{customer.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {customer.bills.length} bill{customer.bills.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
+                      {/* Bills count */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="text-sm text-gray-600 font-medium">{customer.bills.length}</span>
+                      </td>
 
-                      <div className="text-right shrink-0">
+                      {/* Balance */}
+                      <td className="px-5 py-3.5 text-right">
+                        <span className={`font-bold font-mono text-sm ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
+                          {isCleared ? '0' : customer.total.toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Status badge */}
+                      <td className="px-4 py-3.5 text-center">
                         {isCleared ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                            ✓ Cleared
+                            Cleared
                           </span>
                         ) : (
-                          <>
-                            <p className="text-xl font-bold font-mono text-amber-600">
-                              {customer.total.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-gray-400">UGX owed</p>
-                          </>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                            Owing
+                          </span>
                         )}
-                      </div>
+                      </td>
 
-                      <svg
-                        className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {/* View Details button — only for registered clients */}
-                    {clientEntry && (
-                      <button
-                        onClick={e => { e.stopPropagation(); router.push(`/employee/clients/${clientSlug(clientEntry)}`) }}
-                        className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
-                        style={{ background: 'rgba(12,35,64,.06)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
-                      >
-                        View Details
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    )}
-
-                    {/* Record Payment button — hidden for cleared clients */}
-                    {!isCleared && (
-                      <button
-                        onClick={(e) => openPaymentModal(customer, e)}
-                        className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                        style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
-                      >
-                        Record Payment
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Bill breakdown */}
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr className="text-xs text-gray-400 uppercase">
-                            <th className="text-left pb-2">Date</th>
-                            <th className="text-left pb-2">Notes</th>
-                            <th className="text-right pb-2">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {customer.bills.map(bill => (
-                            <tr key={bill.id}>
-                              <td className="py-2 text-gray-700 whitespace-nowrap">
-                                {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
-                              </td>
-                              <td className="py-2 text-gray-500">
-                                {bill.notes || '–'}
-                              </td>
-                              <td className={`py-2 text-right font-medium font-mono ${Number(bill.amount) === 0 ? 'text-green-600' : 'text-amber-600'}`}>
-                                {Number(bill.amount) === 0 ? 'PAID' : Number(bill.amount).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t border-gray-200">
-                            <td colSpan={2} className="pt-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</td>
-                            <td className="pt-3 text-right font-bold font-mono text-amber-700">
-                              {customer.total.toLocaleString()}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-
-                      {!isCleared && (
-                        <button
-                          onClick={(e) => openPaymentModal(customer, e)}
-                          className="mt-4 w-full py-2 rounded-lg text-sm font-semibold transition-all"
-                          style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.25)' }}
-                        >
-                          Record Payment for {customer.name}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                      {/* Actions */}
+                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          {!isCleared && (
+                            <button
+                              onClick={(e) => openPaymentModal(customer, e)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                              style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
+                            >
+                              Pay
+                            </button>
+                          )}
+                          {clientEntry && (
+                            <button
+                              onClick={() => router.push(`/employee/clients/${clientSlug(clientEntry)}`)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 whitespace-nowrap"
+                              style={{ background: 'rgba(12,35,64,.06)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
+                            >
+                              Profile
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
