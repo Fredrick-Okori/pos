@@ -9,6 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import CurrencyInput from '@/components/CurrencyInput'
 
 interface ExpenseEntry {
   description: string
@@ -219,14 +220,11 @@ export default function EmployeeExpenses() {
                         </div>
                         <div className="w-32">
                           <label className="text-xs text-gray-400 mb-1 block">Amount</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={expense.amount || ''}
-                            onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)}
+                          <CurrencyInput
+                            value={Number(expense.amount) || 0}
+                            onValueChange={(v) => updateExpense(index, 'amount', v)}
                             className="input-field"
-                            placeholder="0.00"
+                            placeholder="0"
                           />
                         </div>
                         <div className="w-44">

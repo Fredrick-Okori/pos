@@ -8,6 +8,8 @@ import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
 
@@ -40,7 +42,7 @@ interface CustomerGroup {
 interface PaymentState {
   customer: CustomerGroup
   date: string
-  amount: string
+  amount: number
   payment_mode: PaymentMode | ''
   notes: string
   submitting: boolean
@@ -50,9 +52,11 @@ export default function EmployeeUnpaidBalancePage() {
   const supabase = createClient()
   const { selectedOrg } = useOrganization()
   const { profile } = useAuth()
+  const router = useRouter()
 
   const [loading, setLoading] = useState(true)
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
+  const [clientsMap, setClientsMap] = useState<Record<string, { id: string; phone: string | null; email: string | null }>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
   const [payment, setPayment] = useState<PaymentState | null>(null)
@@ -91,8 +95,28 @@ export default function EmployeeUnpaidBalancePage() {
     }
   }
 
+  const fetchClientsMap = async () => {
+    try {
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      let q = supabase.from('clients').select('id, name, phone_number, email')
+      if (orgId) q = q.eq('organization_id', orgId)
+      const { data } = await q
+      if (data) {
+        const map: Record<string, { id: string; phone: string | null; email: string | null }> = {}
+        ;(data as any[]).forEach(c => { map[c.name.toLowerCase()] = { id: c.id, phone: c.phone_number, email: c.email } })
+        setClientsMap(map)
+      }
+    } catch {
+      // non-critical
+    }
+  }
+
+  const clientSlug = (entry: { id: string; phone: string | null }): string =>
+    entry.phone ? entry.phone.replace(/[^0-9]/g, '') : entry.id
+
   useEffect(() => {
     fetchBills()
+    fetchClientsMap()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrg?.id, profile?.organization_id])
 
@@ -126,12 +150,12 @@ export default function EmployeeUnpaidBalancePage() {
 
   const openPaymentModal = (customer: CustomerGroup, e: React.MouseEvent) => {
     e.stopPropagation()
-    setPayment({ customer, date: format(new Date(), 'yyyy-MM-dd'), amount: '', payment_mode: '', notes: '', submitting: false })
+    setPayment({ customer, date: format(new Date(), 'yyyy-MM-dd'), amount: 0, payment_mode: '', notes: '', submitting: false })
   }
 
   const handlePaymentSubmit = async () => {
     if (!payment) return
-    const amt = parseFloat(payment.amount)
+    const amt = payment.amount
     if (!amt || amt <= 0) {
       toast.error('Enter a valid payment amount')
       return
@@ -176,6 +200,19 @@ export default function EmployeeUnpaidBalancePage() {
       }
 
       const isFullPayment = amt >= payment.customer.total
+
+      fetch('/api/email/payment-cleared', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: payment.customer.name,
+          amountPaid: amt,
+          remainingBalance: Math.max(0, payment.customer.total - amt),
+          paymentMode: payment.payment_mode,
+          date: payment.date,
+        }),
+      }).catch(() => {})
+
       toast.success(
         isFullPayment
           ? `${payment.customer.name}'s balance fully cleared`
@@ -358,6 +395,7 @@ export default function EmployeeUnpaidBalancePage() {
             {customerGroups.map(customer => {
               const isExpanded = expandedCustomer === customer.name
               const isCleared = customer.total === 0
+              const clientEntry = clientsMap[customer.name.toLowerCase()]
 
               return (
                 <div key={customer.name} className={`card overflow-hidden ${isCleared ? 'opacity-75' : ''}`}>
@@ -400,6 +438,20 @@ export default function EmployeeUnpaidBalancePage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
+
+                    {/* View Details button — only for registered clients */}
+                    {clientEntry && (
+                      <button
+                        onClick={e => { e.stopPropagation(); router.push(`/employee/clients/${clientSlug(clientEntry)}`) }}
+                        className="shrink-0 ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                        style={{ background: 'rgba(12,35,64,.06)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
+                      >
+                        View Details
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )}
 
                     {/* Record Payment button — hidden for cleared clients */}
                     {!isCleared && (
@@ -539,31 +591,26 @@ export default function EmployeeUnpaidBalancePage() {
                 <div>
                   <label className="label">Amount (UGX)</label>
                   <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <CurrencyInput
                       value={payment.amount}
-                      onChange={e => setPayment(p => p ? { ...p, amount: e.target.value } : null)}
-                      placeholder="0"
+                      onValueChange={v => setPayment(p => p ? { ...p, amount: v } : null)}
                       className="input-field flex-1"
                       autoFocus
-                      onWheel={e => e.currentTarget.blur()}
                     />
                     <button
                       type="button"
-                      onClick={() => setPayment(p => p ? { ...p, amount: String(p.customer.total) } : null)}
+                      onClick={() => setPayment(p => p ? { ...p, amount: p.customer.total } : null)}
                       className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap"
                       style={{ background: 'rgba(16,185,129,.1)', color: '#059669', border: '1px solid rgba(16,185,129,.3)' }}
                     >
                       Pay in Full
                     </button>
                   </div>
-                  {payment.amount && parseFloat(payment.amount) > 0 && (
-                    <p className={`mt-1.5 text-sm font-medium ${parseFloat(payment.amount) >= payment.customer.total ? 'text-green-600' : 'text-amber-600'}`}>
-                      {parseFloat(payment.amount) >= payment.customer.total
+                  {payment.amount > 0 && (
+                    <p className={`mt-1.5 text-sm font-medium ${payment.amount >= payment.customer.total ? 'text-green-600' : 'text-amber-600'}`}>
+                      {payment.amount >= payment.customer.total
                         ? 'Balance will be fully cleared'
-                        : `Remaining: ${(payment.customer.total - parseFloat(payment.amount)).toLocaleString()} UGX`}
+                        : `Remaining: ${(payment.customer.total - payment.amount).toLocaleString()} UGX`}
                     </p>
                   )}
                 </div>
@@ -592,7 +639,7 @@ export default function EmployeeUnpaidBalancePage() {
                 </button>
                 <button
                   onClick={handlePaymentSubmit}
-                  disabled={payment.submitting || !payment.amount || parseFloat(payment.amount) <= 0 || !payment.payment_mode}
+                  disabled={payment.submitting || payment.amount <= 0 || !payment.payment_mode}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
                   style={{ background: '#059669' }}
                 >

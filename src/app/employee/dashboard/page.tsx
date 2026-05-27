@@ -10,6 +10,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import CurrencyInput from '@/components/CurrencyInput'
 
 export default function EmployeeDashboard() {
   const { user, profile } = useAuth()
@@ -22,6 +23,14 @@ export default function EmployeeDashboard() {
   const [existingReport, setExistingReport] = useState<DailyReport | null>(null)
   const [customerNames, setCustomerNames] = useState<string[]>([])
   const [openAcIndex, setOpenAcIndex] = useState<number | null>(null)
+  const [createClientModal, setCreateClientModal] = useState<{
+    billIndex: number
+    name: string
+    phone: string
+    email: string
+    notes: string
+    saving: boolean
+  } | null>(null)
 
   const [formData, setFormData] = useState<ReportFormData>({
     report_date: format(new Date(), 'yyyy-MM-dd'),
@@ -124,23 +133,28 @@ export default function EmployeeDashboard() {
   const fetchCustomerNames = async () => {
     try {
       const orgId = selectedOrg?.id || profile?.organization_id || null
-      let query = supabase
+
+      let billQuery = supabase
         .from('unpaid_bills')
         .select('customer_name, daily_reports!inner(organization_id)')
+      if (orgId) billQuery = billQuery.eq('daily_reports.organization_id', orgId)
 
-      if (orgId) query = query.eq('daily_reports.organization_id', orgId)
+      let clientQuery = supabase.from('clients').select('name')
+      if (orgId) clientQuery = clientQuery.eq('organization_id', orgId)
 
-      const { data } = await query
-      if (data) {
-        const seen = new Set<string>()
-        const unique = (data as any[]).map(r => r.customer_name as string).filter(n => {
-          if (!n || seen.has(n)) return false
-          seen.add(n)
-          return true
-        })
-          .sort((a, b) => a.localeCompare(b))
-        setCustomerNames(unique)
-      }
+      const [{ data: billData }, { data: clientData }] = await Promise.all([billQuery, clientQuery])
+
+      const seen = new Set<string>()
+      const allNames = [
+        ...((billData as any[]) || []).map((r: any) => r.customer_name as string),
+        ...((clientData as any[]) || []).map((r: any) => r.name as string),
+      ]
+      const unique = allNames.filter(n => {
+        if (!n || seen.has(n.toLowerCase())) return false
+        seen.add(n.toLowerCase())
+        return true
+      }).sort((a, b) => a.localeCompare(b))
+      setCustomerNames(unique)
     } catch {
       // silently ignore — autocomplete is non-critical
     }
@@ -149,11 +163,11 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     fetchReports()
     fetchCustomerNames()
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     fetchReportForDate(selectedDate)
-  }, [selectedDate, user])
+  }, [selectedDate, user?.id])
 
   const handleInputChange = (field: keyof ReportFormData, value: number | string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -199,6 +213,52 @@ export default function EmployeeDashboard() {
       ...prev,
       unpaid_bills: prev.unpaid_bills.filter((_, i) => i !== index)
     }))
+  }
+
+  const isValidPhone = (phone: string) => /^\+\d{9,14}$/.test(phone.replace(/\s/g, ''))
+
+  const handlePhoneInput = (raw: string) => {
+    // Ensure it always starts with +, allow only digits and spaces after
+    let val = raw
+    if (val && !val.startsWith('+')) val = '+' + val.replace(/\+/g, '')
+    val = '+' + val.slice(1).replace(/[^\d\s]/g, '')
+    setCreateClientModal(m => m ? { ...m, phone: val } : null)
+  }
+
+  const handleSaveNewClient = async () => {
+    if (!createClientModal || !createClientModal.name.trim()) return
+    const phone = createClientModal.phone.replace(/\s/g, '')
+    if (!isValidPhone(phone)) {
+      toast.error('Enter a valid phone number (e.g. +256700000000)')
+      return
+    }
+    setCreateClientModal(m => m ? { ...m, saving: true } : null)
+    try {
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      const { error } = await supabase.from('clients').insert({
+        name: createClientModal.name.trim(),
+        organization_id: orgId,
+        phone_number: phone,
+        email: createClientModal.email.trim() || null,
+        notes: createClientModal.notes.trim() || null,
+      })
+      if (error) {
+        if (error.code === '23505') {
+          toast.error('A client with this phone number already exists')
+        } else {
+          throw error
+        }
+        setCreateClientModal(m => m ? { ...m, saving: false } : null)
+        return
+      }
+      updateUnpaidBill(createClientModal.billIndex, 'customer_name', createClientModal.name.trim())
+      await fetchCustomerNames()
+      toast.success(`Client "${createClientModal.name.trim()}" created`)
+      setCreateClientModal(null)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create client')
+      setCreateClientModal(m => m ? { ...m, saving: false } : null)
+    }
   }
 
   const totalExpenses = formData.expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
@@ -288,6 +348,37 @@ export default function EmployeeDashboard() {
         const { error } = await supabase.from('unpaid_bills').insert(bills)
         if (error) throw error
       }
+      fetch('/api/email/daily-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeName: profile?.full_name ?? 'Employee',
+          reportDate: formData.report_date,
+          totalSales: formData.total_sales,
+          cash: formData.cash,
+          airtelMoney: formData.airtel_money,
+          mtnMoney: formData.mtn_money,
+          visaCard: formData.visa_card,
+          stanbic: formData.stanbic,
+          usdAmount: formData.usd_amount,
+          exchangeRate: formData.exchange_rate,
+          barSales: formData.bar_sales,
+          kitchenSales: formData.kitchen_sales,
+          shishaSales: formData.shisha_sales,
+          complementaries: formData.complementaries,
+          discounts: formData.discounts,
+          expenses: formData.expenses
+            .filter(e => e.description && e.amount > 0)
+            .map(e => ({ description: e.description, amount: e.amount, paidFrom: e.paid_from })),
+          unpaidBills: formData.unpaid_bills
+            .filter(b => b.customer_name && b.amount > 0)
+            .map(b => ({ customerName: b.customer_name, amount: b.amount, notes: b.notes || undefined })),
+          reconStatus,
+          reconDiff: Math.round(reconDiff),
+          notes: formData.notes || '',
+        }),
+      }).catch(() => {})
+
       toast.success('Report saved and locked!')
       fetchReports()
       fetchReportForDate(selectedDate)
@@ -419,15 +510,15 @@ export default function EmployeeDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Total Sales</label>
-                    <input type="number" step="0.01" min="0" value={formData.total_sales || ''} onChange={(e) => handleInputChange('total_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                    <CurrencyInput value={formData.total_sales} onValueChange={(v) => handleInputChange('total_sales', v)} className="input-field" disabled={isReportLocked} />
                   </div>
                   <div>
                     <label className="label">Discounts Given</label>
-                    <input type="number" step="0.01" min="0" value={formData.discounts || ''} onChange={(e) => handleInputChange('discounts', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                    <CurrencyInput value={formData.discounts} onValueChange={(v) => handleInputChange('discounts', v)} className="input-field" disabled={isReportLocked} />
                   </div>
                   <div>
                     <label className="label">Complementaries</label>
-                    <input type="number" step="0.01" min="0" value={formData.complementaries || ''} onChange={(e) => handleInputChange('complementaries', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                    <CurrencyInput value={formData.complementaries} onValueChange={(v) => handleInputChange('complementaries', v)} className="input-field" disabled={isReportLocked} />
                   </div>
                 </div>
                 {/* Sales breakdown (optional) */}
@@ -436,15 +527,15 @@ export default function EmployeeDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="label">Bar Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.bar_sales || ''} onChange={(e) => handleInputChange('bar_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                      <CurrencyInput value={formData.bar_sales} onValueChange={(v) => handleInputChange('bar_sales', v)} className="input-field" disabled={isReportLocked} />
                     </div>
                     <div>
                       <label className="label">Kitchen Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.kitchen_sales || ''} onChange={(e) => handleInputChange('kitchen_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                      <CurrencyInput value={formData.kitchen_sales} onValueChange={(v) => handleInputChange('kitchen_sales', v)} className="input-field" disabled={isReportLocked} />
                     </div>
                     <div>
                       <label className="label">Shisha Sales</label>
-                      <input type="number" step="0.01" min="0" value={formData.shisha_sales || ''} onChange={(e) => handleInputChange('shisha_sales', parseFloat(e.target.value) || 0)} className="input-field" placeholder="" disabled={isReportLocked} />
+                      <CurrencyInput value={formData.shisha_sales} onValueChange={(v) => handleInputChange('shisha_sales', v)} className="input-field" disabled={isReportLocked} />
                     </div>
                   </div>
                 </div>
@@ -462,14 +553,10 @@ export default function EmployeeDashboard() {
                           {account.label}
                         </span>
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData[account.key] || ''}
-                        onChange={(e) => handleInputChange(account.key, parseFloat(e.target.value) || 0)}
+                      <CurrencyInput
+                        value={Number(formData[account.key]) || 0}
+                        onValueChange={(v) => handleInputChange(account.key, v)}
                         className="input-field"
-                        placeholder=""
                         disabled={isReportLocked}
                       />
                     </div>
@@ -477,14 +564,10 @@ export default function EmployeeDashboard() {
                   {/* Stanbic (UGX) */}
                   <div>
                     <label className="label">Stanbic (UGX)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.stanbic || ''}
-                      onChange={(e) => handleInputChange('stanbic', parseFloat(e.target.value) || 0)}
+                    <CurrencyInput
+                      value={formData.stanbic}
+                      onValueChange={(v) => handleInputChange('stanbic', v)}
                       className="input-field"
-                      placeholder=""
                       disabled={isReportLocked}
                     />
                   </div>
@@ -496,14 +579,10 @@ export default function EmployeeDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">USD Amount ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.usd_amount || ''}
-                        onChange={(e) => handleInputChange('usd_amount', parseFloat(e.target.value) || 0)}
+                      <CurrencyInput
+                        value={formData.usd_amount}
+                        onValueChange={(v) => handleInputChange('usd_amount', v)}
                         className="input-field"
-                        placeholder=""
                         disabled={isReportLocked}
                       />
                     </div>
@@ -547,7 +626,7 @@ export default function EmployeeDashboard() {
                             <input type="text" value={expense.description} onChange={(e) => updateExpense(index, 'description', e.target.value)} className="input-field" placeholder="Expense description" disabled={isReportLocked} />
                           </div>
                           <div className="w-32">
-                            <input type="number" step="0.01" min="0" value={expense.amount || ''} onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
+                            <CurrencyInput value={Number(expense.amount) || 0} onValueChange={(v) => updateExpense(index, 'amount', v)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
                           </div>
                           {!isReportLocked && (
                             <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
@@ -591,6 +670,10 @@ export default function EmployeeDashboard() {
                         : customerNames
                       const isOpen = openAcIndex === index && !isReportLocked && suggestions.length > 0
 
+                      const nameTyped = bill.customer_name.trim()
+                      const nameExists = customerNames.some(n => n.toLowerCase() === nameTyped.toLowerCase())
+                      const showCreateBtn = !isReportLocked && nameTyped.length > 0 && !nameExists
+
                       return (
                         <div key={index} className="p-3 bg-gray-50 rounded-lg">
                           <div className="flex gap-3 items-start">
@@ -628,9 +711,25 @@ export default function EmployeeDashboard() {
                                   ))}
                                 </ul>
                               )}
+                              {showCreateBtn && (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    setCreateClientModal({ billIndex: index, name: nameTyped, phone: '+256', email: '', notes: '', saving: false })
+                                  }}
+                                  className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
+                                  style={{ background: 'rgba(16,185,129,.08)', color: '#059669', border: '1px solid rgba(16,185,129,.25)' }}
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                  </svg>
+                                  Create &ldquo;{nameTyped}&rdquo; as client
+                                </button>
+                              )}
                             </div>
                             <div className="w-32">
-                              <input type="number" step="0.01" min="0" value={bill.amount || ''} onChange={(e) => updateUnpaidBill(index, 'amount', parseFloat(e.target.value) || 0)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
+                              <CurrencyInput value={Number(bill.amount) || 0} onValueChange={(v) => updateUnpaidBill(index, 'amount', v)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
                             </div>
                             {!isReportLocked && (
                               <button type="button" onClick={() => removeUnpaidBill(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
@@ -753,6 +852,104 @@ export default function EmployeeDashboard() {
             </div>
           </div>
         </div>
+        {/* Create Client Modal */}
+        {createClientModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-lg leading-tight">Create New Client</h2>
+                    <p className="text-sm text-gray-500">Register as a tracked client</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreateClientModal(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="px-6 pb-5 space-y-4">
+                <div>
+                  <label className="label">Client Name <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={createClientModal.name}
+                    onChange={e => setCreateClientModal(m => m ? { ...m, name: e.target.value } : null)}
+                    className="input-field"
+                    placeholder="Full name"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="label">Phone Number <span className="text-red-400">*</span></label>
+                  <input
+                    type="tel"
+                    value={createClientModal.phone}
+                    onChange={e => handlePhoneInput(e.target.value)}
+                    className={`input-field ${createClientModal.phone.length > 4 && !isValidPhone(createClientModal.phone.replace(/\s/g, '')) ? 'border-red-300 focus:ring-red-200' : ''}`}
+                    placeholder="+256 700 000 000"
+                  />
+                  {createClientModal.phone.length > 4 && !isValidPhone(createClientModal.phone.replace(/\s/g, '')) ? (
+                    <p className="mt-1 text-xs text-red-500">Must start with + and contain 9–14 digits (e.g. +256700000000)</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-400">Unique identifier — no two clients can share a number</p>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Email <span className="text-gray-400 font-normal">(optional — for receipts)</span></label>
+                  <input
+                    type="email"
+                    value={createClientModal.email}
+                    onChange={e => setCreateClientModal(m => m ? { ...m, email: e.target.value } : null)}
+                    className="input-field"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="label">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <textarea
+                    value={createClientModal.notes}
+                    onChange={e => setCreateClientModal(m => m ? { ...m, notes: e.target.value } : null)}
+                    className="input-field resize-none h-20"
+                    placeholder="Any additional information about this client..."
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreateClientModal(null)}
+                  disabled={createClientModal.saving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveNewClient}
+                  disabled={createClientModal.saving || !createClientModal.name.trim() || !isValidPhone(createClientModal.phone.replace(/\s/g, ''))}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: '#059669' }}
+                >
+                  {createClientModal.saving ? 'Creating...' : 'Create Client'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </DashboardLayout>
     </ProtectedRoute>
   )

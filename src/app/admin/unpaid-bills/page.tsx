@@ -19,7 +19,7 @@ interface UnpaidBillWithDetails {
     organization_id: string | null
     profiles: {
       full_name: string
-    }
+    } | null
   }
 }
 
@@ -40,7 +40,7 @@ export default function AdminUnpaidBills() {
           daily_reports!inner (
             report_date,
             organization_id,
-            profiles!inner (full_name)
+            profiles!user_id (full_name)
           )
         `)
         .order('created_at', { ascending: false })
@@ -177,7 +177,7 @@ export default function AdminUnpaidBills() {
                             {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
                           </td>
                           <td className="py-2 text-gray-500">
-                            {bill.daily_reports.profiles.full_name}
+                            {bill.daily_reports.profiles?.full_name ?? '—'}
                           </td>
                           <td className="py-2 text-gray-500">
                             {bill.notes || '-'}

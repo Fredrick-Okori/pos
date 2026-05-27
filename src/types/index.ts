@@ -113,6 +113,9 @@ export interface Client {
   id: string
   organization_id: string | null
   name: string
+  phone_number: string | null
+  email: string | null
+  notes: string | null
   created_at: string
   // computed from joins
   charges?: ClientCharge[]
