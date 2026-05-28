@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(req: NextRequest) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY is not set — skipping email')
+    return NextResponse.json({ skipped: true })
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const { clientName, amountPaid, remainingBalance, paymentMode, date } = await req.json()
 

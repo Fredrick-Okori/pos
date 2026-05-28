@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 interface Expense {
   description: string
   amount: number
@@ -16,6 +14,11 @@ interface UnpaidBill {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY is not set — skipping email')
+    return NextResponse.json({ skipped: true })
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const {
       employeeName,

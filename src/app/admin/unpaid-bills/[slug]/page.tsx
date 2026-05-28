@@ -7,7 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import toast from 'react-hot-toast'
-import { format } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
@@ -48,6 +48,8 @@ function clientPhoneSlug(phone: string | null, id: string) {
   return phone ? phone.replace(/[^0-9]/g, '') : id
 }
 
+type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
+
 export default function AdminUnpaidBillDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
@@ -63,6 +65,9 @@ export default function AdminUnpaidBillDetailPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
   const fetchData = async () => {
     setLoading(true)
@@ -128,6 +133,36 @@ export default function AdminUnpaidBillDetailPage() {
 
   const total = bills.reduce((s, b) => s + Number(b.amount), 0)
   const isCleared = total === 0
+  const totalCollected = bills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
+
+  const filteredBills = (() => {
+    if (dateFilter === 'all') return bills
+    let from: Date, to: Date
+    const today = new Date()
+    if (dateFilter === 'this_week') {
+      from = startOfWeek(today, { weekStartsOn: 1 })
+      to = endOfWeek(today, { weekStartsOn: 1 })
+    } else if (dateFilter === 'last_week') {
+      const prev = subWeeks(today, 1)
+      from = startOfWeek(prev, { weekStartsOn: 1 })
+      to = endOfWeek(prev, { weekStartsOn: 1 })
+    } else if (dateFilter === 'last_month') {
+      const prev = subMonths(today, 1)
+      from = startOfMonth(prev)
+      to = endOfMonth(prev)
+    } else {
+      if (!customFrom || !customTo) return bills
+      from = new Date(customFrom)
+      to = new Date(customTo + 'T23:59:59')
+    }
+    return bills.filter(b => {
+      const d = new Date(b.daily_reports.report_date)
+      return d >= from && d <= to
+    })
+  })()
+  const filteredTotal = filteredBills.reduce((s, b) => s + Number(b.amount), 0)
+  const filteredCollected = filteredBills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
+  const filteredOriginal = filteredBills.reduce((s, b) => s + (Number(b.original_amount) || Number(b.amount)), 0)
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -135,6 +170,84 @@ export default function AdminUnpaidBillDetailPage() {
   const searchResults = searchQuery.trim().length > 0
     ? allCustomers.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) && nameToSlug(c.name) !== slug)
     : allCustomers.filter(c => nameToSlug(c.name) !== slug)
+
+  const exportPDF = () => {
+    if (!customerName) return
+    const filterLabel: Record<DateFilter, string> = {
+      all: 'All Time', this_week: 'This Week', last_week: 'Last Week',
+      last_month: 'Last Month', custom: customFrom && customTo ? `${customFrom} – ${customTo}` : 'Custom',
+    }
+    const rows = [...filteredBills]
+      .sort((a, b) => new Date(b.daily_reports.report_date).getTime() - new Date(a.daily_reports.report_date).getTime())
+      .map(bill => {
+        const remaining = Number(bill.amount)
+        const original = Number(bill.original_amount) || remaining
+        const paid = original - remaining
+        const isFullyPaid = remaining === 0
+        return `<tr>
+          <td>${format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}</td>
+          <td>${bill.daily_reports.profiles?.full_name ?? '—'}</td>
+          <td>${bill.notes || '—'}</td>
+          <td style="text-align:right">${original.toLocaleString()}</td>
+          <td style="text-align:right;color:${paid > 0 ? '#16a34a' : '#999'}">${paid > 0 ? paid.toLocaleString() : '—'}</td>
+          <td style="text-align:right;color:${isFullyPaid ? '#16a34a' : '#b45309'};font-weight:600">${isFullyPaid ? '0' : remaining.toLocaleString()}</td>
+          <td style="text-align:center"><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${isFullyPaid ? '#dcfce7' : '#fef3c7'};color:${isFullyPaid ? '#16a34a' : '#92400e'}">${isFullyPaid ? 'Paid' : 'Owing'}</span></td>
+        </tr>`
+      }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Bill Statement – ${customerName}</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:960px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:4px}
+  .period{display:inline-block;font-size:11px;font-weight:700;color:#0C2340;background:#f0f4ff;border:1px solid #c7d7f5;border-radius:6px;padding:2px 10px;margin-bottom:20px}
+  .cards{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .card{background:#f8faff;border-radius:8px;padding:12px 18px;min-width:130px;border:1px solid #e2e8f0}
+  .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:19px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  td{padding:8px 10px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  tfoot td{background:#f1f5f9;font-weight:700;border-top:2px solid #e2e8f0}
+  .footer{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:20px}@page{margin:15mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Bill Statement – ${customerName}</h1>
+<div class="sub">SEIV Point of Sale &nbsp;·&nbsp; Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
+<div class="period">Period: ${filterLabel[dateFilter]}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Billed</div><div class="card-val" style="color:#0C2340">${filteredOriginal.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Collected</div><div class="card-val" style="color:#2563eb">${filteredCollected.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Outstanding</div><div class="card-val" style="color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal === 0 ? 'CLEARED' : 'OWING'}</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Recorded By</th><th>Notes</th><th style="text-align:right">Original (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Remaining (UGX)</th><th style="text-align:center">Status</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr>
+    <td colspan="3">Totals</td>
+    <td style="text-align:right">${filteredOriginal.toLocaleString()}</td>
+    <td style="text-align:right;color:#16a34a">${filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}</td>
+    <td style="text-align:right;color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal.toLocaleString()}</td>
+    <td></td>
+  </tr></tfoot>
+</table>
+<div class="footer">SEIV &nbsp;·&nbsp; This is a system-generated statement.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=960,height=720')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
 
   const handlePaymentSubmit = async () => {
     if (!payment || !customerName) return
@@ -288,55 +401,126 @@ export default function AdminUnpaidBillDetailPage() {
                     {bills.length} bill{bills.length !== 1 ? 's' : ''}{clientRecord ? ' · Registered client' : ''}
                   </p>
                 </div>
-                {clientRecord && (
+                <div className="flex items-center gap-2">
+                  {clientRecord && (
+                    <button
+                      onClick={() => router.push(`/employee/clients/${clientPhoneSlug(clientRecord.phone, clientRecord.id)}`)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                      style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Full Profile
+                    </button>
+                  )}
                   <button
-                    onClick={() => router.push(`/employee/clients/${clientPhoneSlug(clientRecord.phone, clientRecord.id)}`)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                    onClick={exportPDF}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
                     style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                     </svg>
-                    Full Profile
+                    Export PDF
                   </button>
-                )}
+                </div>
               </div>
             </div>
 
-            {/* Balance banner */}
-            <div
-              className="rounded-2xl px-6 py-5 flex items-center justify-between mb-8"
-              style={isCleared
-                ? { background: 'rgba(16,185,129,.07)', border: '1px solid rgba(16,185,129,.22)' }
-                : { background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' }}
-            >
-              <div>
-                <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isCleared ? 'text-green-700' : 'text-amber-700'}`}>
-                  {isCleared ? 'Balance Cleared' : 'Outstanding Balance'}
-                </p>
-                <p className={`text-3xl font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
-                  UGX {total.toLocaleString()}
-                </p>
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div
+                className="rounded-2xl px-6 py-5 flex items-center justify-between"
+                style={isCleared
+                  ? { background: 'rgba(16,185,129,.07)', border: '1px solid rgba(16,185,129,.22)' }
+                  : { background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' }}
+              >
+                <div>
+                  <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isCleared ? 'text-green-700' : 'text-amber-700'}`}>
+                    {isCleared ? 'Balance Cleared' : 'Outstanding Balance'}
+                  </p>
+                  <p className={`text-3xl font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
+                    UGX {total.toLocaleString()}
+                  </p>
+                </div>
+                {isCleared ? (
+                  <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <button
+                    onClick={() => setPayment({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, payment_mode: '', notes: '', submitting: false })}
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                    style={{ background: '#059669' }}
+                  >
+                    Record Payment
+                  </button>
+                )}
               </div>
-              {isCleared ? (
-                <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <button
-                  onClick={() => setPayment({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, payment_mode: '', notes: '', submitting: false })}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                  style={{ background: '#059669' }}
-                >
-                  Record Payment
-                </button>
+              <div
+                className="rounded-2xl px-6 py-5"
+                style={{ background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.2)' }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1 text-blue-700">Total Collected</p>
+                <p className="text-3xl font-bold font-mono text-blue-600">UGX {totalCollected.toLocaleString()}</p>
+                <p className="text-xs mt-1 text-blue-600 opacity-60">paid by this client</p>
+              </div>
+            </div>
+
+            {/* Date filter */}
+            <div className="mb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { value: 'all', label: 'All Time' },
+                  { value: 'this_week', label: 'This Week' },
+                  { value: 'last_week', label: 'Last Week' },
+                  { value: 'last_month', label: 'Last Month' },
+                  { value: 'custom', label: 'Custom' },
+                ] as { value: DateFilter; label: string }[]).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setDateFilter(value)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                    style={dateFilter === value
+                      ? { background: '#0C2340', color: '#fff' }
+                      : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {dateFilter === 'custom' && (
+                <div className="flex items-center gap-2 mt-3">
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="input-field"
+                  />
+                  <span className="text-gray-400 text-sm font-medium">to</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
               )}
             </div>
 
             {/* Bills table */}
             <div className="card overflow-hidden p-0">
               <div className="px-5 py-4 border-b border-gray-100">
-                <h2 className="font-semibold text-gray-900">Bill Breakdown</h2>
+                <h2 className="font-semibold text-gray-900">
+                  Bill Breakdown
+                  {dateFilter !== 'all' && (
+                    <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">
+                      {filteredBills.length} of {bills.length}
+                    </span>
+                  )}
+                </h2>
               </div>
               <table className="min-w-full">
                 <thead>
@@ -344,15 +528,22 @@ export default function AdminUnpaidBillDetailPage() {
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Recorded By</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Notes</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount (UGX)</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Original (UGX)</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid (UGX)</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Remaining (UGX)</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {[...bills]
+                  {filteredBills.length === 0 ? (
+                    <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-gray-400">No bills found for this period.</td></tr>
+                  ) : [...filteredBills]
                     .sort((a, b) => new Date(b.daily_reports.report_date).getTime() - new Date(a.daily_reports.report_date).getTime())
                     .map(bill => {
-                      const paid = Number(bill.amount) === 0
+                      const remaining = Number(bill.amount)
+                      const original = Number(bill.original_amount) || remaining
+                      const paid = original - remaining
+                      const isFullyPaid = remaining === 0
                       return (
                         <tr key={bill.id} className="hover:bg-gray-50/60">
                           <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
@@ -364,11 +555,17 @@ export default function AdminUnpaidBillDetailPage() {
                           <td className="px-5 py-3.5 text-sm text-gray-500">
                             {bill.notes || <span className="text-gray-300">—</span>}
                           </td>
-                          <td className={`px-5 py-3.5 text-right text-sm font-semibold font-mono ${paid ? 'text-green-600' : 'text-amber-600'}`}>
-                            {paid ? '0' : Number(bill.amount).toLocaleString()}
+                          <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
+                            {original.toLocaleString()}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-green-600">
+                            {paid > 0 ? paid.toLocaleString() : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className={`px-5 py-3.5 text-right text-sm font-semibold font-mono ${isFullyPaid ? 'text-green-600' : 'text-amber-600'}`}>
+                            {isFullyPaid ? '0' : remaining.toLocaleString()}
                           </td>
                           <td className="px-4 py-3.5 text-center">
-                            {paid ? (
+                            {isFullyPaid ? (
                               <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Paid</span>
                             ) : (
                               <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Owing</span>
@@ -380,9 +577,15 @@ export default function AdminUnpaidBillDetailPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-100 bg-gray-50">
-                    <td colSpan={3} className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wide">Total Outstanding</td>
-                    <td className={`px-5 py-4 text-right font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-700'}`}>
-                      {total.toLocaleString()}
+                    <td colSpan={3} className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wide">Totals</td>
+                    <td className="px-5 py-4 text-right font-bold font-mono text-gray-700">
+                      {filteredOriginal.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-4 text-right font-bold font-mono text-green-600">
+                      {filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}
+                    </td>
+                    <td className={`px-5 py-4 text-right font-bold font-mono ${filteredTotal === 0 ? 'text-green-600' : 'text-amber-700'}`}>
+                      {filteredTotal.toLocaleString()}
                     </td>
                     <td />
                   </tr>

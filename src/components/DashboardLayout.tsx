@@ -109,8 +109,8 @@ export default function DashboardLayout({ children }: SidebarProps) {
               </svg>
             </div>
             <div>
-              <p className="font-sans font-bold tracking-widest text-gold-500" style={{ fontSize: 10 }}>SEIV</p>
-              <p className="font-serif text-white/90 leading-tight" style={{ fontSize: 12 }}>Point of Sale</p>
+              <p className="font-sans font-bold tracking-widest text-gold-500" style={{ fontSize: 16 }}>SEIV</p>
+              <p className="font-serif text-white/90 leading-tight" style={{ fontSize: 12 }}>See Clearly</p>
             </div>
           </div>
           {/* User row */}

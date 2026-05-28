@@ -9,7 +9,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { format } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
@@ -57,6 +57,8 @@ function phoneToSlug(phone: string): string {
   return phone.replace(/[^0-9]/g, '')
 }
 
+type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
+
 export default function EmployeeClientDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const supabase = createClient()
@@ -67,6 +69,9 @@ export default function EmployeeClientDetailPage() {
   const [client, setClient] = useState<ClientRow | null>(null)
   const [bills, setBills] = useState<BillRow[]>([])
   const [payment, setPayment] = useState<PaymentState | null>(null)
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
   const fetchData = async () => {
     setLoading(true)
@@ -108,11 +113,118 @@ export default function EmployeeClientDetailPage() {
   }, [slug, selectedOrg?.id, profile?.organization_id])
 
   const totalOutstanding = bills.reduce((s, b) => s + Number(b.amount), 0)
+  const totalCollected = bills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
   const paidCount = bills.filter(b => Number(b.amount) === 0).length
   const owingCount = bills.filter(b => Number(b.amount) > 0).length
 
+  const filteredBills = (() => {
+    if (dateFilter === 'all') return bills
+    let from: Date, to: Date
+    const today = new Date()
+    if (dateFilter === 'this_week') {
+      from = startOfWeek(today, { weekStartsOn: 1 })
+      to = endOfWeek(today, { weekStartsOn: 1 })
+    } else if (dateFilter === 'last_week') {
+      const prev = subWeeks(today, 1)
+      from = startOfWeek(prev, { weekStartsOn: 1 })
+      to = endOfWeek(prev, { weekStartsOn: 1 })
+    } else if (dateFilter === 'last_month') {
+      const prev = subMonths(today, 1)
+      from = startOfMonth(prev)
+      to = endOfMonth(prev)
+    } else {
+      if (!customFrom || !customTo) return bills
+      from = new Date(customFrom)
+      to = new Date(customTo + 'T23:59:59')
+    }
+    return bills.filter(b => {
+      const d = new Date(b.daily_reports.report_date)
+      return d >= from && d <= to
+    })
+  })()
+  const filteredOutstanding = filteredBills.reduce((s, b) => s + Number(b.amount), 0)
+  const filteredCollected = filteredBills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
+  const filteredOriginal = filteredBills.reduce((s, b) => s + (Number(b.original_amount) || Number(b.amount)), 0)
+
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  const exportPDF = () => {
+    if (!client) return
+    const filterLabel: Record<DateFilter, string> = {
+      all: 'All Time', this_week: 'This Week', last_week: 'Last Week',
+      last_month: 'Last Month', custom: customFrom && customTo ? `${customFrom} – ${customTo}` : 'Custom',
+    }
+    const rows = filteredBills.map(bill => {
+      const remaining = Number(bill.amount)
+      const original = Number(bill.original_amount) || remaining
+      const amtPaid = original - remaining
+      const isFullyPaid = remaining === 0
+      return `<tr>
+        <td>${format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}</td>
+        <td>${bill.notes || '—'}</td>
+        <td style="text-align:right">${original.toLocaleString()}</td>
+        <td style="text-align:right;color:${amtPaid > 0 ? '#16a34a' : '#999'}">${amtPaid > 0 ? amtPaid.toLocaleString() : '—'}</td>
+        <td style="text-align:right;color:${isFullyPaid ? '#16a34a' : '#b45309'};font-weight:600">${isFullyPaid ? '0' : remaining.toLocaleString()}</td>
+        <td style="text-align:center"><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${isFullyPaid ? '#dcfce7' : '#fef3c7'};color:${isFullyPaid ? '#16a34a' : '#92400e'}">${isFullyPaid ? 'Paid' : 'Owing'}</span></td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Bill Statement – ${client.name}</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:860px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:4px}
+  .meta{font-size:11px;color:#666;margin-bottom:6px}
+  .period{display:inline-block;font-size:11px;font-weight:700;color:#0C2340;background:#f0f4ff;border:1px solid #c7d7f5;border-radius:6px;padding:2px 10px;margin-bottom:20px}
+  .cards{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .card{background:#f8faff;border-radius:8px;padding:12px 18px;min-width:130px;border:1px solid #e2e8f0}
+  .card-label{font-size:10px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:19px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#0C2340;color:#fff;font-size:11px;font-weight:600}
+  td{padding:8px 10px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  tfoot td{background:#f1f5f9;font-weight:700;border-top:2px solid #e2e8f0}
+  .footer{margin-top:28px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .print-btn:hover{background:#1E4A7A}
+  @media print{.print-btn{display:none!important}body{padding:20px}@page{margin:15mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Bill Statement – ${client.name}</h1>
+<div class="sub">SEIV Point of Sale &nbsp;·&nbsp; Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
+${client.phone_number ? `<div class="meta">Phone: ${client.phone_number}${client.email ? ` &nbsp;·&nbsp; Email: ${client.email}` : ''}</div>` : ''}
+<div class="period">Period: ${filterLabel[dateFilter]}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Billed</div><div class="card-val" style="color:#0C2340">${filteredOriginal.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Collected</div><div class="card-val" style="color:#2563eb">${filteredCollected.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Outstanding</div><div class="card-val" style="color:${filteredOutstanding === 0 ? '#16a34a' : '#b45309'}">${filteredOutstanding.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${filteredOutstanding === 0 ? '#16a34a' : '#b45309'}">${filteredOutstanding === 0 ? 'CLEARED' : 'OWING'}</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Notes</th><th style="text-align:right">Original (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Remaining (UGX)</th><th style="text-align:center">Status</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr>
+    <td colspan="2">Totals</td>
+    <td style="text-align:right">${filteredOriginal.toLocaleString()}</td>
+    <td style="text-align:right;color:#16a34a">${filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}</td>
+    <td style="text-align:right;color:${filteredOutstanding === 0 ? '#16a34a' : '#b45309'}">${filteredOutstanding.toLocaleString()}</td>
+    <td></td>
+  </tr></tfoot>
+</table>
+<div class="footer">SEIV &nbsp;·&nbsp; This is a system-generated statement.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=960,height=720')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
 
   const openPaymentModal = () => {
     setPayment({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, payment_mode: '', notes: '', submitting: false })
@@ -225,27 +337,43 @@ export default function EmployeeClientDetailPage() {
                   </p>
                 </div>
 
-                {/* Record payment CTA */}
-                {totalOutstanding > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={openPaymentModal}
-                    className="shrink-0 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
-                    style={{ background: '#059669' }}
+                    onClick={exportPDF}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                    style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
                   >
-                    Record Payment
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    Export PDF
                   </button>
-                )}
+                  {totalOutstanding > 0 && (
+                    <button
+                      onClick={openPaymentModal}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+                      style={{ background: '#059669' }}
+                    >
+                      Record Payment
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
               <div className="card" style={{ background: 'rgba(245,158,11,.07)', border: '1px solid rgba(245,158,11,.25)' }}>
                 <p className="text-sm" style={{ color: '#92400e' }}>Outstanding Balance</p>
                 <p className="text-3xl font-bold font-mono" style={{ color: '#b45309' }}>
                   {totalOutstanding.toLocaleString()}
                 </p>
                 <p className="text-xs mt-1" style={{ color: '#b45309', opacity: 0.6 }}>UGX</p>
+              </div>
+              <div className="card" style={{ background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.2)' }}>
+                <p className="text-sm" style={{ color: '#1e40af' }}>Total Collected</p>
+                <p className="text-3xl font-bold font-mono" style={{ color: '#2563eb' }}>{totalCollected.toLocaleString()}</p>
+                <p className="text-xs mt-1" style={{ color: '#2563eb', opacity: 0.6 }}>UGX paid</p>
               </div>
               <div className="card">
                 <p className="text-sm text-gray-500">Bills Owing</p>
@@ -259,7 +387,54 @@ export default function EmployeeClientDetailPage() {
 
             {/* Bills table */}
             <div className="card">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Unpaid Bill History</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Unpaid Bill History
+                  {dateFilter !== 'all' && (
+                    <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">
+                      {filteredBills.length} of {bills.length}
+                    </span>
+                  )}
+                </h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {([
+                  { value: 'all', label: 'All Time' },
+                  { value: 'this_week', label: 'This Week' },
+                  { value: 'last_week', label: 'Last Week' },
+                  { value: 'last_month', label: 'Last Month' },
+                  { value: 'custom', label: 'Custom' },
+                ] as { value: DateFilter; label: string }[]).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setDateFilter(value)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                    style={dateFilter === value
+                      ? { background: '#0C2340', color: '#fff' }
+                      : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {dateFilter === 'custom' && (
+                <div className="flex items-center gap-2 mb-4">
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="input-field"
+                  />
+                  <span className="text-gray-400 text-sm font-medium">to</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              )}
 
               {bills.length === 0 ? (
                 <div className="text-center py-10">
@@ -275,43 +450,67 @@ export default function EmployeeClientDetailPage() {
                       <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
                         <th className="text-left pb-3 font-semibold">Date</th>
                         <th className="text-left pb-3 font-semibold">Notes</th>
-                        <th className="text-right pb-3 font-semibold">Amount (UGX)</th>
+                        <th className="text-right pb-3 font-semibold">Original (UGX)</th>
+                        <th className="text-right pb-3 font-semibold">Paid (UGX)</th>
+                        <th className="text-right pb-3 font-semibold">Remaining (UGX)</th>
                         <th className="text-right pb-3 font-semibold">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {bills.map(bill => (
-                        <tr key={bill.id} className={Number(bill.amount) === 0 ? 'opacity-60' : ''}>
-                          <td className="py-3 text-gray-700 whitespace-nowrap">
-                            {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="py-3 text-gray-500 max-w-xs truncate">
-                            {bill.notes || <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className={`py-3 text-right font-mono font-semibold ${Number(bill.amount) === 0 ? 'text-green-600' : 'text-amber-600'}`}>
-                            {Number(bill.amount) === 0 ? '—' : Number(bill.amount).toLocaleString()}
-                          </td>
-                          <td className="py-3 text-right">
-                            {Number(bill.amount) === 0 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                ✓ Paid
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                                Owing
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredBills.length === 0 ? (
+                        <tr><td colSpan={6} className="py-8 text-center text-sm text-gray-400">No bills found for this period.</td></tr>
+                      ) : filteredBills.map(bill => {
+                        const remaining = Number(bill.amount)
+                        const original = Number(bill.original_amount) || remaining
+                        const amtPaid = original - remaining
+                        const isFullyPaid = remaining === 0
+                        return (
+                          <tr key={bill.id} className={isFullyPaid ? 'opacity-70' : ''}>
+                            <td className="py-3 text-gray-700 whitespace-nowrap">
+                              {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="py-3 text-gray-500 max-w-xs truncate">
+                              {bill.notes || <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-3 text-right font-mono font-semibold text-gray-700">
+                              {original.toLocaleString()}
+                            </td>
+                            <td className="py-3 text-right font-mono font-semibold text-green-600">
+                              {amtPaid > 0 ? amtPaid.toLocaleString() : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className={`py-3 text-right font-mono font-semibold ${isFullyPaid ? 'text-green-600' : 'text-amber-600'}`}>
+                              {isFullyPaid ? '0' : remaining.toLocaleString()}
+                            </td>
+                            <td className="py-3 text-right">
+                              {isFullyPaid ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                  ✓ Paid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                                  Owing
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
-                    {bills.length > 0 && (
+                    {filteredBills.length > 0 && (
                       <tfoot>
                         <tr className="border-t-2 border-gray-200">
-                          <td colSpan={2} className="pt-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Outstanding</td>
-                          <td colSpan={2} className="pt-4 text-right font-bold font-mono text-amber-700 text-base">
-                            {totalOutstanding > 0 ? `${totalOutstanding.toLocaleString()} UGX` : (
-                              <span className="text-green-600 font-semibold">Fully Cleared</span>
+                          <td colSpan={2} className="pt-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
+                          <td className="pt-4 text-right font-bold font-mono text-gray-700">
+                            {filteredOriginal.toLocaleString()}
+                          </td>
+                          <td className="pt-4 text-right font-bold font-mono text-green-600">
+                            {filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}
+                          </td>
+                          <td colSpan={2} className="pt-4 text-right font-bold font-mono text-base">
+                            {filteredOutstanding > 0 ? (
+                              <span className="text-amber-700">{filteredOutstanding.toLocaleString()} UGX</span>
+                            ) : (
+                              <span className="text-green-600">Fully Cleared</span>
                             )}
                           </td>
                         </tr>
