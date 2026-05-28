@@ -50,6 +50,18 @@ function clientPhoneSlug(phone: string | null, id: string) {
 
 type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
 
+interface PaymentRecord {
+  id: string; customer_name: string; amount: number;
+  payment_mode: string | null; notes: string | null; paid_at: string;
+}
+type LedgerEntry =
+  | { kind: 'bill'; id: string; date: string; recordedBy: string | null; notes: string | null; original: number; remaining: number }
+  | { kind: 'payment'; id: string; date: string; notes: string | null; amount: number; payment_mode: string | null }
+const MODE_LABELS: Record<string, string> = {
+  cash: 'Cash', airtel_money: 'Airtel Money', mtn_money: 'MTN Money',
+  visa_card: 'Visa Card', stanbic: 'Stanbic',
+}
+
 export default function AdminUnpaidBillDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
@@ -68,6 +80,7 @@ export default function AdminUnpaidBillDetailPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
 
   const fetchData = async () => {
     setLoading(true)
@@ -106,6 +119,13 @@ export default function AdminUnpaidBillDetailPage() {
       if (clientData && clientData.length > 0) {
         setClientRecord({ id: clientData[0].id, phone: clientData[0].phone_number, email: clientData[0].email })
       }
+
+      const orgId = selectedOrg?.id || null
+      let payQuery = supabase.from('bill_payments').select('*')
+        .ilike('customer_name', name).order('paid_at', { ascending: false })
+      if (orgId) payQuery = payQuery.eq('organization_id', orgId)
+      const { data: payData } = await payQuery
+      setPayments(payData || [])
     } catch (err) {
       console.error('Error loading client bills:', err)
       toast.error('Failed to load bill details')
@@ -135,34 +155,36 @@ export default function AdminUnpaidBillDetailPage() {
   const isCleared = total === 0
   const totalCollected = bills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
 
-  const filteredBills = (() => {
-    if (dateFilter === 'all') return bills
+  const ledger: LedgerEntry[] = [
+    ...bills.map(b => ({ kind: 'bill' as const, id: b.id, date: b.daily_reports.report_date,
+      recordedBy: b.daily_reports.profiles?.full_name || null,
+      notes: b.notes, original: Number(b.original_amount) || Number(b.amount), remaining: Number(b.amount) })),
+    ...payments.map(p => ({ kind: 'payment' as const, id: p.id, date: p.paid_at,
+      notes: p.notes, amount: Number(p.amount), payment_mode: p.payment_mode })),
+  ]
+  const filteredLedger: LedgerEntry[] = (() => {
+    if (dateFilter === 'all') return ledger
     let from: Date, to: Date
     const today = new Date()
     if (dateFilter === 'this_week') {
-      from = startOfWeek(today, { weekStartsOn: 1 })
-      to = endOfWeek(today, { weekStartsOn: 1 })
+      from = startOfWeek(today, { weekStartsOn: 1 }); to = endOfWeek(today, { weekStartsOn: 1 })
     } else if (dateFilter === 'last_week') {
       const prev = subWeeks(today, 1)
-      from = startOfWeek(prev, { weekStartsOn: 1 })
-      to = endOfWeek(prev, { weekStartsOn: 1 })
+      from = startOfWeek(prev, { weekStartsOn: 1 }); to = endOfWeek(prev, { weekStartsOn: 1 })
     } else if (dateFilter === 'last_month') {
-      const prev = subMonths(today, 1)
-      from = startOfMonth(prev)
-      to = endOfMonth(prev)
+      const prev = subMonths(today, 1); from = startOfMonth(prev); to = endOfMonth(prev)
     } else {
-      if (!customFrom || !customTo) return bills
-      from = new Date(customFrom)
-      to = new Date(customTo + 'T23:59:59')
+      if (!customFrom || !customTo) return ledger
+      from = new Date(customFrom); to = new Date(customTo + 'T23:59:59')
     }
-    return bills.filter(b => {
-      const d = new Date(b.daily_reports.report_date)
-      return d >= from && d <= to
-    })
+    return ledger.filter(e => { const d = new Date(e.date); return d >= from && d <= to })
   })()
-  const filteredTotal = filteredBills.reduce((s, b) => s + Number(b.amount), 0)
-  const filteredCollected = filteredBills.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
-  const filteredOriginal = filteredBills.reduce((s, b) => s + (Number(b.original_amount) || Number(b.amount)), 0)
+  const filteredLedgerBilled = filteredLedger
+    .filter((e): e is Extract<LedgerEntry, { kind: 'bill' }> => e.kind === 'bill')
+    .reduce((s, e) => s + e.original, 0)
+  const filteredLedgerPaid = filteredLedger
+    .filter((e): e is Extract<LedgerEntry, { kind: 'payment' }> => e.kind === 'payment')
+    .reduce((s, e) => s + e.amount, 0)
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -177,22 +199,28 @@ export default function AdminUnpaidBillDetailPage() {
       all: 'All Time', this_week: 'This Week', last_week: 'Last Week',
       last_month: 'Last Month', custom: customFrom && customTo ? `${customFrom} – ${customTo}` : 'Custom',
     }
-    const rows = [...filteredBills]
-      .sort((a, b) => new Date(b.daily_reports.report_date).getTime() - new Date(a.daily_reports.report_date).getTime())
-      .map(bill => {
-        const remaining = Number(bill.amount)
-        const original = Number(bill.original_amount) || remaining
-        const paid = original - remaining
-        const isFullyPaid = remaining === 0
-        return `<tr>
-          <td>${format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}</td>
-          <td>${bill.daily_reports.profiles?.full_name ?? '—'}</td>
-          <td>${bill.notes || '—'}</td>
-          <td style="text-align:right">${original.toLocaleString()}</td>
-          <td style="text-align:right;color:${paid > 0 ? '#16a34a' : '#999'}">${paid > 0 ? paid.toLocaleString() : '—'}</td>
-          <td style="text-align:right;color:${isFullyPaid ? '#16a34a' : '#b45309'};font-weight:600">${isFullyPaid ? '0' : remaining.toLocaleString()}</td>
-          <td style="text-align:center"><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${isFullyPaid ? '#dcfce7' : '#fef3c7'};color:${isFullyPaid ? '#16a34a' : '#92400e'}">${isFullyPaid ? 'Paid' : 'Owing'}</span></td>
-        </tr>`
+    const rows = [...filteredLedger]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map(entry => {
+        if (entry.kind === 'bill') {
+          return `<tr>
+            <td>${format(new Date(entry.date), 'MMM dd, yyyy')}</td>
+            <td>${entry.recordedBy ?? '—'}</td>
+            <td>${entry.notes || '—'}</td>
+            <td style="text-align:right;font-weight:600">${entry.original.toLocaleString()}</td>
+            <td style="text-align:right;color:#999">—</td>
+            <td style="text-align:center"><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e">Bill</span></td>
+          </tr>`
+        } else {
+          return `<tr style="background:#f0fdf4">
+            <td>${format(new Date(entry.date), 'MMM dd, yyyy')}</td>
+            <td>—</td>
+            <td>${entry.notes || (entry.payment_mode ? MODE_LABELS[entry.payment_mode] || entry.payment_mode : '—')}</td>
+            <td style="text-align:right;color:#999">—</td>
+            <td style="text-align:right;color:#16a34a;font-weight:600">${entry.amount.toLocaleString()}</td>
+            <td style="text-align:center"><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#16a34a">Payment</span></td>
+          </tr>`
+        }
       }).join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -222,19 +250,18 @@ export default function AdminUnpaidBillDetailPage() {
 <div class="sub">SEIV Point of Sale &nbsp;·&nbsp; Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
 <div class="period">Period: ${filterLabel[dateFilter]}</div>
 <div class="cards">
-  <div class="card"><div class="card-label">Total Billed</div><div class="card-val" style="color:#0C2340">${filteredOriginal.toLocaleString()} UGX</div></div>
-  <div class="card"><div class="card-label">Total Collected</div><div class="card-val" style="color:#2563eb">${filteredCollected.toLocaleString()} UGX</div></div>
-  <div class="card"><div class="card-label">Outstanding</div><div class="card-val" style="color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal.toLocaleString()} UGX</div></div>
-  <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal === 0 ? 'CLEARED' : 'OWING'}</div></div>
+  <div class="card"><div class="card-label">Total Billed</div><div class="card-val" style="color:#0C2340">${filteredLedgerBilled.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Total Collected</div><div class="card-val" style="color:#2563eb">${filteredLedgerPaid.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Outstanding</div><div class="card-val" style="color:${total === 0 ? '#16a34a' : '#b45309'}">${total.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Status</div><div class="card-val" style="color:${total === 0 ? '#16a34a' : '#b45309'}">${total === 0 ? 'CLEARED' : 'OWING'}</div></div>
 </div>
 <table>
-  <thead><tr><th>Date</th><th>Recorded By</th><th>Notes</th><th style="text-align:right">Original (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Remaining (UGX)</th><th style="text-align:center">Status</th></tr></thead>
+  <thead><tr><th>Date</th><th>Recorded By</th><th>Description</th><th style="text-align:right">Billed (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:center">Type</th></tr></thead>
   <tbody>${rows}</tbody>
   <tfoot><tr>
     <td colspan="3">Totals</td>
-    <td style="text-align:right">${filteredOriginal.toLocaleString()}</td>
-    <td style="text-align:right;color:#16a34a">${filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}</td>
-    <td style="text-align:right;color:${filteredTotal === 0 ? '#16a34a' : '#b45309'}">${filteredTotal.toLocaleString()}</td>
+    <td style="text-align:right">${filteredLedgerBilled.toLocaleString()}</td>
+    <td style="text-align:right;color:#16a34a">${filteredLedgerPaid > 0 ? filteredLedgerPaid.toLocaleString() : '—'}</td>
     <td></td>
   </tr></tfoot>
 </table>
@@ -279,6 +306,12 @@ export default function AdminUnpaidBillDetailPage() {
           remaining = 0
         }
       }
+
+      const orgId = selectedOrg?.id || null
+      await supabase.from('bill_payments').insert({
+        organization_id: orgId, customer_name: customerName, amount: amt,
+        payment_mode: payment.payment_mode, notes: payment.notes || null, paid_at: payment.date,
+      })
 
       fetch('/api/email/payment-cleared', {
         method: 'POST',
@@ -510,14 +543,14 @@ export default function AdminUnpaidBillDetailPage() {
               )}
             </div>
 
-            {/* Bills table */}
+            {/* Transaction History table */}
             <div className="card overflow-hidden p-0">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900">
-                  Bill Breakdown
+                  Transaction History
                   {dateFilter !== 'all' && (
                     <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">
-                      {filteredBills.length} of {bills.length}
+                      {filteredLedger.length} of {ledger.length}
                     </span>
                   )}
                 </h2>
@@ -527,65 +560,69 @@ export default function AdminUnpaidBillDetailPage() {
                   <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Recorded By</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Notes</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Original (UGX)</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Billed (UGX)</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid (UGX)</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Remaining (UGX)</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredBills.length === 0 ? (
-                    <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-gray-400">No bills found for this period.</td></tr>
-                  ) : [...filteredBills]
-                    .sort((a, b) => new Date(b.daily_reports.report_date).getTime() - new Date(a.daily_reports.report_date).getTime())
-                    .map(bill => {
-                      const remaining = Number(bill.amount)
-                      const original = Number(bill.original_amount) || remaining
-                      const paid = original - remaining
-                      const isFullyPaid = remaining === 0
-                      return (
-                        <tr key={bill.id} className="hover:bg-gray-50/60">
-                          <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
-                            {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="px-5 py-3.5 text-sm text-gray-500">
-                            {bill.daily_reports.profiles?.full_name ?? '—'}
-                          </td>
-                          <td className="px-5 py-3.5 text-sm text-gray-500">
-                            {bill.notes || <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
-                            {original.toLocaleString()}
-                          </td>
-                          <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-green-600">
-                            {paid > 0 ? paid.toLocaleString() : <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className={`px-5 py-3.5 text-right text-sm font-semibold font-mono ${isFullyPaid ? 'text-green-600' : 'text-amber-600'}`}>
-                            {isFullyPaid ? '0' : remaining.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3.5 text-center">
-                            {isFullyPaid ? (
-                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Paid</span>
-                            ) : (
-                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Owing</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
+                  {filteredLedger.length === 0 ? (
+                    <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400">No transactions found for this period.</td></tr>
+                  ) : [...filteredLedger]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map(entry => {
+                      if (entry.kind === 'bill') {
+                        return (
+                          <tr key={entry.id} className="hover:bg-gray-50/60">
+                            <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
+                              {format(new Date(entry.date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="px-5 py-3.5 text-sm text-gray-500">
+                              {entry.recordedBy ?? <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-5 py-3.5 text-sm text-gray-500">
+                              {entry.notes || <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
+                              {entry.original.toLocaleString()}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-sm text-gray-300">—</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bill</span>
+                            </td>
+                          </tr>
+                        )
+                      } else {
+                        return (
+                          <tr key={entry.id} style={{ background: 'rgba(240,253,244,.5)' }}>
+                            <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
+                              {format(new Date(entry.date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="px-5 py-3.5 text-sm text-gray-300">—</td>
+                            <td className="px-5 py-3.5 text-sm text-gray-500">
+                              {entry.notes || (entry.payment_mode ? MODE_LABELS[entry.payment_mode] || entry.payment_mode : <span className="text-gray-300">—</span>)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-sm text-gray-300">—</td>
+                            <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-green-600">
+                              {entry.amount.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Payment</span>
+                            </td>
+                          </tr>
+                        )
+                      }
                     })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-100 bg-gray-50">
                     <td colSpan={3} className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wide">Totals</td>
                     <td className="px-5 py-4 text-right font-bold font-mono text-gray-700">
-                      {filteredOriginal.toLocaleString()}
+                      {filteredLedgerBilled.toLocaleString()}
                     </td>
                     <td className="px-5 py-4 text-right font-bold font-mono text-green-600">
-                      {filteredCollected > 0 ? filteredCollected.toLocaleString() : '—'}
-                    </td>
-                    <td className={`px-5 py-4 text-right font-bold font-mono ${filteredTotal === 0 ? 'text-green-600' : 'text-amber-700'}`}>
-                      {filteredTotal.toLocaleString()}
+                      {filteredLedgerPaid > 0 ? filteredLedgerPaid.toLocaleString() : '—'}
                     </td>
                     <td />
                   </tr>
