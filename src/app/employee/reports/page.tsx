@@ -118,7 +118,7 @@ export default function EmployeeReports() {
     }).join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>My Sales Reports – Krug Ten Eleven</title>
+<title>My Sales Reports – SEIV</title>
 <style>
   body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:36px;max-width:900px;margin:0 auto}
   h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
@@ -141,7 +141,7 @@ export default function EmployeeReports() {
 <body>
 <button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
 <h1>My Daily Sales Reports</h1>
-<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="sub">SEIV Point of Sale &middot; Generated ${date}</div>
 <div class="cards">
   <div class="card"><div class="card-label">Total Reports</div><div class="card-val">${filteredReports.length}</div></div>
   <div class="card"><div class="card-label">Total Sales</div><div class="card-val" style="color:#16a34a">${totalSales.toLocaleString()} UGX</div></div>
@@ -153,7 +153,7 @@ export default function EmployeeReports() {
   <thead><tr><th>Date</th><th>Day</th><th class="r">Total Sales</th><th class="r">Cash at Hand</th><th class="r">Expenses</th><th class="r">Credit Sales</th><th class="c">Status</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated report.</div>
+<div class="footer">SEIV &middot; This is a system-generated report.</div>
 <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
 </body></html>`
 
@@ -166,9 +166,9 @@ export default function EmployeeReports() {
 
   const emailSummary = () => {
     const periodStr = filterLabel ? `Period: ${filterLabel}\n` : ''
-    const subject = encodeURIComponent('My Sales Reports Summary · Krug Ten Eleven')
+    const subject = encodeURIComponent('My Sales Reports Summary · SEIV')
     const body = encodeURIComponent(
-      `My Daily Sales Reports – Krug Ten Eleven Bar & Restaurant\n` +
+      `My Daily Sales Reports – SEIV Bar & Restaurant\n` +
       `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n` +
       periodStr + '\n' +
       `Total Reports:   ${filteredReports.length}\n` +
@@ -177,7 +177,7 @@ export default function EmployeeReports() {
       `Total Expenses:  UGX ${totalExpenses.toLocaleString()}\n` +
       `Credit Sales:    UGX ${totalUnpaid.toLocaleString()}\n` +
       `Edited Reports:  ${filteredReports.filter(r => r.is_edited).length}\n\n` +
-      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+      `Powered by SEIV · SEIV`
     )
     window.open(`mailto:?subject=${subject}&body=${body}`)
   }

@@ -25,6 +25,7 @@ interface UnpaidBillRow {
   id: string
   customer_name: string
   amount: number
+  original_amount: number
   notes: string | null
   created_at: string
   daily_reports: {
@@ -143,6 +144,7 @@ export default function EmployeeUnpaidBalancePage() {
 
   const owingCount = customerGroups.filter(cg => cg.total > 0).length
   const clearedCount = customerGroups.filter(cg => cg.total === 0).length
+  const totalCollected = filtered.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
 
   const nameToSlug = (name: string) =>
     name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -184,18 +186,14 @@ export default function EmployeeUnpaidBalancePage() {
       for (const bill of sorted) {
         if (remaining <= 0) break
         const billAmt = Number(bill.amount)
+        const originalAmt = Number(bill.original_amount) || billAmt
 
         if (remaining >= billAmt) {
-          // Fully covers this bill — zero it out (keep record so customer stays visible)
-          const { error } = await supabase.from('unpaid_bills').update({ amount: 0 }).eq('id', bill.id)
+          const { error } = await supabase.from('unpaid_bills').update({ amount: 0, original_amount: originalAmt }).eq('id', bill.id)
           if (error) throw error
           remaining -= billAmt
         } else {
-          // Partially covers this bill — reduce the amount
-          const { error } = await supabase
-            .from('unpaid_bills')
-            .update({ amount: billAmt - remaining })
-            .eq('id', bill.id)
+          const { error } = await supabase.from('unpaid_bills').update({ amount: billAmt - remaining, original_amount: originalAmt }).eq('id', bill.id)
           if (error) throw error
           remaining = 0
         }
@@ -250,7 +248,7 @@ export default function EmployeeUnpaidBalancePage() {
     }).join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Outstanding Balances – Krug Ten Eleven</title>
+<title>Outstanding Balances – SEIV</title>
 <style>
   body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:800px;margin:0 auto}
   h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
@@ -270,7 +268,7 @@ export default function EmployeeUnpaidBalancePage() {
 <body>
 <button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
 <h1>Outstanding Balances</h1>
-<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="sub">SEIV Point of Sale &middot; Generated ${date}</div>
 <div class="cards">
   <div class="card"><div class="card-label">Total Outstanding</div><div class="card-val" style="color:#dc2626">${totalOutstanding.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Clients Owing</div><div class="card-val" style="color:#0C2340">${customerGroups.length}</div></div>
@@ -280,7 +278,7 @@ export default function EmployeeUnpaidBalancePage() {
   <thead><tr><th>Date</th><th>Notes</th><th style="text-align:right">Amount (UGX)</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated report.</div>
+<div class="footer">SEIV &middot; This is a system-generated report.</div>
 <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
 </body></html>`
 
@@ -296,15 +294,15 @@ export default function EmployeeUnpaidBalancePage() {
       .slice(0, 20)
       .map(cg => `  ${cg.name}: UGX ${cg.total.toLocaleString()} (${cg.bills.length} bill${cg.bills.length !== 1 ? 's' : ''})`)
       .join('\n')
-    const subject = encodeURIComponent('Outstanding Balances · Krug Ten Eleven')
+    const subject = encodeURIComponent('Outstanding Balances · SEIV')
     const body = encodeURIComponent(
-      `Outstanding Balances – Krug Ten Eleven Bar & Restaurant\n` +
+      `Outstanding Balances – SEIV Bar & Restaurant\n` +
       `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
       `Total Outstanding: UGX ${totalOutstanding.toLocaleString()}\n` +
       `Clients Owing:     ${customerGroups.length}\n` +
       `Total Bills:       ${filtered.length}\n\n` +
       `Breakdown:\n${list}\n\n` +
-      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+      `Powered by SEIV · SEIV`
     )
     window.open(`mailto:?subject=${subject}&body=${body}`)
   }
@@ -345,7 +343,7 @@ export default function EmployeeUnpaidBalancePage() {
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="card" style={{ background: 'rgba(245,158,11,.07)', border: '1px solid rgba(245,158,11,.25)' }}>
             <p className="text-sm" style={{ color: '#92400e' }}>Total Outstanding</p>
             <p className="text-3xl font-bold font-mono" style={{ color: '#b45309' }}>
@@ -360,6 +358,11 @@ export default function EmployeeUnpaidBalancePage() {
           <div className="card" style={{ background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.2)' }}>
             <p className="text-sm" style={{ color: '#065f46' }}>Clients Cleared</p>
             <p className="text-3xl font-bold" style={{ color: '#059669' }}>{clearedCount}</p>
+          </div>
+          <div className="card" style={{ background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.2)' }}>
+            <p className="text-sm" style={{ color: '#1e40af' }}>Total Collected</p>
+            <p className="text-3xl font-bold font-mono" style={{ color: '#2563eb' }}>{totalCollected.toLocaleString()}</p>
+            <p className="text-xs mt-1" style={{ color: '#2563eb', opacity: 0.6 }}>UGX paid by clients</p>
           </div>
         </div>
 

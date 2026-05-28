@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
             </div>
             <div>
               <p className="font-sans font-bold tracking-widest text-gold-500" style={{ fontSize: 10 }}>SEIV</p>
-              <p className="font-serif text-white/90 leading-tight" style={{ fontSize: 12 }}>Krug Ten Eleven</p>
+              <p className="font-serif text-white/90 leading-tight" style={{ fontSize: 12 }}>Point of Sale</p>
             </div>
           </div>
           {/* User row */}
@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
                 style={{
                   color: active ? '#fff' : 'rgba(255,255,255,.5)',
                   background: active ? 'rgba(37,99,168,.35)' : 'transparent',
-                  borderLeft: active ? '2.5px solid #C9A84C' : '2.5px solid transparent',
+                  borderLeft: active ? '2.5px solid #f2eddd' : '2.5px solid transparent',
                 }}
               >
                 <span style={{ color: active ? '#93c5fd' : 'rgba(255,255,255,.3)' }}>{item.icon}</span>

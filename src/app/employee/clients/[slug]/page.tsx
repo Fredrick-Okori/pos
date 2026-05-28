@@ -35,6 +35,7 @@ interface BillRow {
   id: string
   customer_name: string
   amount: number
+  original_amount: number
   notes: string | null
   created_at: string
   daily_reports: {
@@ -134,12 +135,14 @@ export default function EmployeeClientDetailPage() {
       for (const bill of owingBills) {
         if (remaining <= 0) break
         const billAmt = Number(bill.amount)
+        const originalAmt = Number(bill.original_amount) || billAmt
+
         if (remaining >= billAmt) {
-          const { error } = await supabase.from('unpaid_bills').update({ amount: 0 }).eq('id', bill.id)
+          const { error } = await supabase.from('unpaid_bills').update({ amount: 0, original_amount: originalAmt }).eq('id', bill.id)
           if (error) throw error
           remaining -= billAmt
         } else {
-          const { error } = await supabase.from('unpaid_bills').update({ amount: billAmt - remaining }).eq('id', bill.id)
+          const { error } = await supabase.from('unpaid_bills').update({ amount: billAmt - remaining, original_amount: originalAmt }).eq('id', bill.id)
           if (error) throw error
           remaining = 0
         }

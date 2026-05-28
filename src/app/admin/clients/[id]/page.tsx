@@ -197,7 +197,7 @@ export default function ClientStatementPage() {
 <body>
 <button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
 <h1>Account Statement – ${client.name}</h1>
-<div class="sub">Krug Ten Eleven Bar &amp; Restaurant · SEIV System · Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
+<div class="sub">SEIV Point of Sale · Generated ${format(new Date(), 'MMM dd, yyyy')}</div>
 <div class="cards">
   <div class="card"><div class="card-label">Total Charged</div><div class="card-val" style="color:#dc2626">${totalCharged.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Total Paid</div><div class="card-val" style="color:#16a34a">${totalPaid.toLocaleString()} UGX</div></div>
@@ -208,7 +208,7 @@ export default function ClientStatementPage() {
   <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Mode</th><th style="text-align:right">Charged (UGX)</th><th style="text-align:right">Paid (UGX)</th><th style="text-align:right">Running Balance</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="footer">SEIV · Krug Ten Eleven Bar &amp; Restaurant · This is a system-generated statement.</div>
+<div class="footer">SEIV · This is a system-generated statement.</div>
 <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
 </body></html>`
 
@@ -221,9 +221,9 @@ export default function ClientStatementPage() {
 
   const emailStatement = () => {
     if (!client) return
-    const subject = encodeURIComponent(`Account Statement – ${client.name} · Krug Ten Eleven`)
+    const subject = encodeURIComponent(`Account Statement – ${client.name} · SEIV`)
     const body = encodeURIComponent(
-      `Dear ${client.name},\n\nPlease find your account summary with Krug Ten Eleven Bar & Restaurant.\n\nTotal Charged: UGX ${totalCharged.toLocaleString()}\nTotal Paid:    UGX ${totalPaid.toLocaleString()}\nBalance Due:   UGX ${balance.toLocaleString()}\n\nPlease contact us if you have any questions.\n\nKrug Ten Eleven Bar & Restaurant\nPowered by SEIV`
+      `Dear ${client.name},\n\nPlease find your account summary with SEIV.\n\nTotal Charged: UGX ${totalCharged.toLocaleString()}\nTotal Paid:    UGX ${totalPaid.toLocaleString()}\nBalance Due:   UGX ${balance.toLocaleString()}\n\nPlease contact us if you have any questions.\n\nSEIV\nPowered by SEIV`
     )
     window.open(`mailto:?subject=${subject}&body=${body}`)
   }

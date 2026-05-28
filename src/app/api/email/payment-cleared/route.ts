@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const initials = clientName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
 
     const { data, error } = await resend.emails.send({
-      from: 'Krug Ten Eleven <finance@alloninc.com>',
+      from: 'SEIV <finance@alloninc.com>',
       to: ['elias@alloninc.com', 'fredrick@alloninc.com'],
       subject: isCleared
         ? `Balance Cleared – ${clientName}`
@@ -51,9 +51,8 @@ export async function POST(req: NextRequest) {
           <!-- Brand label -->
           <tr>
             <td style="padding-bottom:24px;text-align:center">
-              <span style="color:#C9A84C;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase">
-                KRUG TEN ELEVEN &nbsp;&mdash;&nbsp; BAR &amp; RESTAURANT
-              </span>
+              <p style="margin:0 0 4px;font-size:28px;font-weight:800;color:#C9A84C;letter-spacing:-.5px;line-height:1">SEIV</p>
+              <p style="margin:0;font-size:10px;font-weight:600;color:rgba(201,168,76,.55);letter-spacing:.22em;text-transform:uppercase">See Clearly</p>
             </td>
           </tr>
 
@@ -206,7 +205,7 @@ export async function POST(req: NextRequest) {
                 <tr>
                   <td style="padding:22px 40px;text-align:center">
                     <p style="margin:0 0 4px;font-size:12px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:.1em">SEIV &nbsp;&middot;&nbsp; Management System</p>
-                    <p style="margin:0;font-size:11px;color:#1e293b">Krug Ten Eleven Bar &amp; Restaurant &nbsp;&middot;&nbsp; Automated Payment Notification</p>
+                    <p style="margin:0;font-size:11px;color:#1e293b">SEIV Point of Sale &nbsp;&middot;&nbsp; Automated Payment Notification</p>
                   </td>
                 </tr>
               </table>

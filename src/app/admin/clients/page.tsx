@@ -210,7 +210,7 @@ export default function AdminClientsPage() {
       .join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Client Ledger – Krug Ten Eleven</title>
+<title>Client Ledger – SEIV</title>
 <style>
   body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#111;padding:40px;max-width:960px;margin:0 auto}
   h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
@@ -231,7 +231,7 @@ export default function AdminClientsPage() {
 <body>
 <button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
 <h1>Client Ledger Overview</h1>
-<div class="sub">Krug Ten Eleven Bar &amp; Restaurant &middot; SEIV System &middot; Generated ${date}</div>
+<div class="sub">SEIV Point of Sale &middot; Generated ${date}</div>
 <div class="cards">
   <div class="card"><div class="card-label">Total Charged</div><div class="card-val" style="color:#0C2340">${totalCharged.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Total Paid</div><div class="card-val" style="color:#16a34a">${totalPaid.toLocaleString()} UGX</div></div>
@@ -242,7 +242,7 @@ export default function AdminClientsPage() {
   <thead><tr><th>Client</th><th class="r">Total Charged (UGX)</th><th class="r">Total Paid (UGX)</th><th class="r">Balance (UGX)</th><th class="c">Status</th><th class="c">Transactions</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="footer">SEIV &middot; Krug Ten Eleven Bar &amp; Restaurant &middot; This is a system-generated ledger overview.</div>
+<div class="footer">SEIV &middot; This is a system-generated ledger overview.</div>
 <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
 </body></html>`
 
@@ -260,16 +260,16 @@ export default function AdminClientsPage() {
       .slice(0, 15)
       .map(c => `  ${c.name}: UGX ${c.balance.toLocaleString()}`)
       .join('\n')
-    const subject = encodeURIComponent('Client Ledger Summary · Krug Ten Eleven')
+    const subject = encodeURIComponent('Client Ledger Summary · SEIV')
     const body = encodeURIComponent(
-      `Client Ledger Summary – Krug Ten Eleven Bar & Restaurant\n` +
+      `Client Ledger Summary – SEIV\n` +
       `Generated: ${new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
       `Total Charged:     UGX ${totalCharged.toLocaleString()}\n` +
       `Total Paid:        UGX ${totalPaid.toLocaleString()}\n` +
       `Total Outstanding: UGX ${totalOutstanding.toLocaleString()}\n` +
       `Clients Owing:     ${outstandingCount} of ${clients.length}\n\n` +
       `Outstanding Clients:\n${owingList || '  None'}\n\n` +
-      `Powered by SEIV · Krug Ten Eleven Bar & Restaurant`
+      `Powered by SEIV · SEIV`
     )
     window.open(`mailto:?subject=${subject}&body=${body}`)
   }

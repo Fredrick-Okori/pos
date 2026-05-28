@@ -114,16 +114,16 @@ export default function LoginForm() {
                 <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
-            <span className="font-sans font-bold tracking-widest text-xs" style={{ color: '#C9A84C' }}>SEIV</span>
+            <span className="font-serif font-bold" style={{ color: '#C9A84C', fontSize: 22, letterSpacing: '-.01em' }}>SEIV</span>
           </div>
 
           {/* Headline */}
           <div className="relative z-10">
             <p className="font-sans font-semibold tracking-widest text-xs uppercase mb-3" style={{ color: '#C9A84C' }}>
-              Krug Ten Eleven · Bar &amp; Restaurant
+              SEIV Point of Sale
             </p>
             <h1 className="font-serif font-medium leading-tight mb-2 text-white" style={{ fontSize: 38, letterSpacing: '-.025em' }}>
-              Daily Sales<br /><em className="font-light" style={{ color: 'rgba(255,255,255,.45)' }}>Intelligence</em>
+              Sales<br /><em className="font-light" style={{ color: 'rgba(255,255,255,.45)' }}>Ledger</em>
             </h1>
             <div className="w-8 h-px my-5" style={{ background: 'rgba(255,255,255,.12)' }} />
             <p className="font-sans text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,.3)' }}>
@@ -275,7 +275,7 @@ export default function LoginForm() {
           </form>
 
           <p className="font-sans text-center mt-6" style={{ fontSize: 9, letterSpacing: '.1em', color: 'rgba(255,255,255,.15)' }}>
-            <strong style={{ color: 'rgba(255,255,255,.25)' }}>SEIV</strong> · See clearly · Krug Ten Eleven · 2026
+            <strong style={{ color: 'rgba(255,255,255,.25)' }}>SEIV</strong> · See clearly · 2026
           </p>
         </div>
       </div>

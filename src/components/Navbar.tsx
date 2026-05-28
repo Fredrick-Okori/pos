@@ -9,7 +9,7 @@ interface NavbarProps {
   title?: string
 }
 
-export default function Navbar({ title = 'Krug POS' }: NavbarProps) {
+export default function Navbar({ title = 'SEIV' }: NavbarProps) {
   const { user, profile, signOut } = useAuth()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)

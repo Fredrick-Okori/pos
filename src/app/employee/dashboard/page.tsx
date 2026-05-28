@@ -343,7 +343,7 @@ export default function EmployeeDashboard() {
       }
       const bills = formData.unpaid_bills
         .filter(bill => bill.customer_name && bill.amount > 0)
-        .map(bill => ({ report_id: reportId, customer_name: bill.customer_name, amount: bill.amount, notes: bill.notes || null }))
+        .map(bill => ({ report_id: reportId, customer_name: bill.customer_name, amount: bill.amount, original_amount: bill.amount, notes: bill.notes || null }))
       if (bills.length > 0) {
         const { error } = await supabase.from('unpaid_bills').insert(bills)
         if (error) throw error

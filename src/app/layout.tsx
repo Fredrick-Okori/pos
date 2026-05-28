@@ -10,7 +10,7 @@ const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif', axes: 
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
-  title: 'Krug POS System',
+  title: 'SEIV',
   description: 'Point of Sale System for Daily Sales Reporting',
 }
 

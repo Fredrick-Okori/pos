@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
-import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import CurrencyInput from '@/components/CurrencyInput'
@@ -23,6 +22,7 @@ interface UnpaidBillRow {
   daily_reports: {
     report_date: string
     organization_id: string | null
+    profiles: { full_name: string } | null
   }
 }
 
@@ -48,12 +48,11 @@ function clientPhoneSlug(phone: string | null, id: string) {
   return phone ? phone.replace(/[^0-9]/g, '') : id
 }
 
-export default function UnpaidBalanceDetailPage() {
+export default function AdminUnpaidBillDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
   const supabase = createClient()
   const { selectedOrg } = useOrganization()
-  const { profile } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
@@ -68,14 +67,12 @@ export default function UnpaidBalanceDetailPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const orgId = selectedOrg?.id || profile?.organization_id || null
-
       let query = supabase
         .from('unpaid_bills')
-        .select(`*, daily_reports!inner(report_date, organization_id)`)
+        .select(`*, daily_reports!inner(report_date, organization_id, profiles!user_id(full_name))`)
         .order('created_at', { ascending: false })
 
-      if (orgId) query = query.eq('daily_reports.organization_id', orgId)
+      if (selectedOrg) query = query.eq('daily_reports.organization_id', selectedOrg.id)
 
       const { data, error } = await query
       if (error) throw error
@@ -91,24 +88,15 @@ export default function UnpaidBalanceDetailPage() {
       }, {} as Record<string, { name: string; total: number }>)
       setAllCustomers(Object.values(grouped).sort((a, b) => b.total - a.total))
 
-      // Find the customer whose name slug matches the URL slug
       const match = allBills.find(b => nameToSlug(b.customer_name) === slug)
-      if (!match) {
-        setLoading(false)
-        return
-      }
+      if (!match) { setLoading(false); return }
 
       const name = match.customer_name
       setCustomerName(name)
       setBills(allBills.filter(b => b.customer_name.toLowerCase() === name.toLowerCase()))
 
-      // Look up client record
-      let clientQuery = supabase
-        .from('clients')
-        .select('id, phone_number, email')
-        .ilike('name', name)
-        .limit(1)
-      if (orgId) clientQuery = clientQuery.eq('organization_id', orgId)
+      let clientQuery = supabase.from('clients').select('id, phone_number, email').ilike('name', name).limit(1)
+      if (selectedOrg) clientQuery = clientQuery.eq('organization_id', selectedOrg.id)
       const { data: clientData } = await clientQuery
       if (clientData && clientData.length > 0) {
         setClientRecord({ id: clientData[0].id, phone: clientData[0].phone_number, email: clientData[0].email })
@@ -126,7 +114,7 @@ export default function UnpaidBalanceDetailPage() {
     setSearchOpen(false)
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, selectedOrg?.id, profile?.organization_id])
+  }, [slug, selectedOrg?.id])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -145,10 +133,7 @@ export default function UnpaidBalanceDetailPage() {
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   const searchResults = searchQuery.trim().length > 0
-    ? allCustomers.filter(c =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        nameToSlug(c.name) !== slug
-      )
+    ? allCustomers.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) && nameToSlug(c.name) !== slug)
     : allCustomers.filter(c => nameToSlug(c.name) !== slug)
 
   const handlePaymentSubmit = async () => {
@@ -194,8 +179,7 @@ export default function UnpaidBalanceDetailPage() {
         }),
       }).catch(() => {})
 
-      const isFullPayment = amt >= total
-      toast.success(isFullPayment ? `${customerName}'s balance fully cleared` : `Payment of UGX ${amt.toLocaleString()} recorded`)
+      toast.success(amt >= total ? `${customerName}'s balance fully cleared` : `Payment of UGX ${amt.toLocaleString()} recorded`)
       setPayment(null)
       await fetchData()
     } catch (err) {
@@ -206,7 +190,7 @@ export default function UnpaidBalanceDetailPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['employee']}>
+    <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -254,7 +238,7 @@ export default function UnpaidBalanceDetailPage() {
                       <button
                         key={c.name}
                         onMouseDown={() => {
-                          router.push(`/employee/unpaid-balance/${nameToSlug(c.name)}`)
+                          router.push(`/admin/unpaid-bills/${nameToSlug(c.name)}`)
                           setSearchQuery('')
                           setSearchOpen(false)
                         }}
@@ -266,13 +250,9 @@ export default function UnpaidBalanceDetailPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          {cleared ? (
-                            <span className="text-xs font-semibold text-green-600">Cleared</span>
-                          ) : (
-                            <span className="text-xs font-semibold font-mono text-amber-600">{c.total.toLocaleString()} UGX</span>
-                          )}
-                        </div>
+                        <span className={`text-xs font-semibold font-mono shrink-0 ${cleared ? 'text-green-600' : 'text-amber-600'}`}>
+                          {cleared ? 'Cleared' : `${c.total.toLocaleString()} UGX`}
+                        </span>
                       </button>
                     )
                   })}
@@ -289,13 +269,13 @@ export default function UnpaidBalanceDetailPage() {
             {/* Back + header */}
             <div className="mb-6">
               <button
-                onClick={() => router.push('/employee/unpaid-balance')}
+                onClick={() => router.push('/admin/unpaid-bills')}
                 className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-4"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Client Balances
+                Unpaid Bills
               </button>
 
               <div className="flex items-center gap-4">
@@ -362,6 +342,7 @@ export default function UnpaidBalanceDetailPage() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Recorded By</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Notes</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount (UGX)</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
@@ -376,6 +357,9 @@ export default function UnpaidBalanceDetailPage() {
                         <tr key={bill.id} className="hover:bg-gray-50/60">
                           <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
                             {format(new Date(bill.daily_reports.report_date), 'MMM dd, yyyy')}
+                          </td>
+                          <td className="px-5 py-3.5 text-sm text-gray-500">
+                            {bill.daily_reports.profiles?.full_name ?? '—'}
                           </td>
                           <td className="px-5 py-3.5 text-sm text-gray-500">
                             {bill.notes || <span className="text-gray-300">—</span>}
@@ -396,7 +380,7 @@ export default function UnpaidBalanceDetailPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-100 bg-gray-50">
-                    <td colSpan={2} className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wide">Total Outstanding</td>
+                    <td colSpan={3} className="px-5 py-4 text-xs font-bold text-gray-500 uppercase tracking-wide">Total Outstanding</td>
                     <td className={`px-5 py-4 text-right font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-700'}`}>
                       {total.toLocaleString()}
                     </td>

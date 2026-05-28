@@ -15,7 +15,7 @@ interface OrganizationContextType {
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined)
 
-const ORG_STORAGE_KEY = 'krug_selected_org_id'
+const ORG_STORAGE_KEY = 'seiv_selected_org_id'
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { profile } = useAuth()
