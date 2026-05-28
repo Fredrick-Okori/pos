@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
+type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month'
 
 const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
   cash: 'Cash',
@@ -59,7 +60,38 @@ export default function EmployeeUnpaidBalancePage() {
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
   const [clientsMap, setClientsMap] = useState<Record<string, { id: string; phone: string | null; email: string | null }>>({})
   const [searchTerm, setSearchTerm] = useState('')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customerFilter, setCustomerFilter] = useState('')
   const [payment, setPayment] = useState<PaymentState | null>(null)
+
+  const isInDateRange = (reportDate: string, filter: DateFilter): boolean => {
+    if (filter === 'all') return true
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const dayOfWeek = today.getDay()
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+
+    let start: Date, end: Date
+    if (filter === 'this_week') {
+      start = new Date(today)
+      start.setDate(today.getDate() + daysToMonday)
+      end = new Date(start)
+      end.setDate(start.getDate() + 6)
+    } else if (filter === 'last_week') {
+      const thisMonday = new Date(today)
+      thisMonday.setDate(today.getDate() + daysToMonday)
+      start = new Date(thisMonday)
+      start.setDate(thisMonday.getDate() - 7)
+      end = new Date(thisMonday)
+      end.setDate(thisMonday.getDate() - 1)
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      end = new Date(now.getFullYear(), now.getMonth(), 0)
+    }
+
+    const d = new Date(reportDate)
+    return d >= start && d <= end
+  }
 
   const fetchBills = async () => {
     setLoading(true)
@@ -120,10 +152,16 @@ export default function EmployeeUnpaidBalancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrg?.id, profile?.organization_id])
 
-  const filtered = bills.filter(b =>
-    b.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const uniqueCustomers = Array.from(new Set(bills.map(b => b.customer_name))).sort()
+
+  const filtered = bills.filter(b => {
+    const matchesSearch =
+      b.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesDate = isInDateRange(b.daily_reports.report_date, dateFilter)
+    const matchesCustomer = !customerFilter || b.customer_name === customerFilter
+    return matchesSearch && matchesDate && matchesCustomer
+  })
 
   const totalOutstanding = filtered.reduce((s, b) => s + Number(b.amount), 0)
 
@@ -366,8 +404,9 @@ export default function EmployeeUnpaidBalancePage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="card mb-6">
+        {/* Search + Filters */}
+        <div className="card mb-6 space-y-4">
+          {/* Search */}
           <div className="relative">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -379,6 +418,47 @@ export default function EmployeeUnpaidBalancePage() {
               onChange={e => setSearchTerm(e.target.value)}
               className="input-field pl-12"
             />
+          </div>
+
+          {/* Filter row */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date filter pills */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {([
+                { value: 'all', label: 'All Time' },
+                { value: 'this_week', label: 'This Week' },
+                { value: 'last_week', label: 'Last Week' },
+                { value: 'last_month', label: 'Last Month' },
+              ] as { value: DateFilter; label: string }[]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setDateFilter(value)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  style={
+                    dateFilter === value
+                      ? { background: '#0C2340', color: '#fff' }
+                      : { background: 'rgba(12,35,64,.07)', color: '#0C2340' }
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Customer filter dropdown */}
+            <div className="ml-auto">
+              <select
+                value={customerFilter}
+                onChange={e => setCustomerFilter(e.target.value)}
+                className="input-field py-1.5 text-sm"
+                style={{ minWidth: '160px' }}
+              >
+                <option value="">All Customers</option>
+                {uniqueCustomers.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
