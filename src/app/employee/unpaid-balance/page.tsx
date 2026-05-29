@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
-type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month'
+type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
 
 const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
   cash: 'Cash',
@@ -61,11 +61,22 @@ export default function EmployeeUnpaidBalancePage() {
   const [clientsMap, setClientsMap] = useState<Record<string, { id: string; phone: string | null; email: string | null }>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
   const [payment, setPayment] = useState<PaymentState | null>(null)
 
   const isInDateRange = (reportDate: string, filter: DateFilter): boolean => {
     if (filter === 'all') return true
+
+    if (filter === 'custom') {
+      if (!customFrom && !customTo) return true
+      const d = new Date(reportDate)
+      if (customFrom && d < new Date(customFrom)) return false
+      if (customTo && d > new Date(customTo)) return false
+      return true
+    }
+
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const dayOfWeek = today.getDay()
@@ -429,6 +440,7 @@ export default function EmployeeUnpaidBalancePage() {
                 { value: 'this_week', label: 'This Week' },
                 { value: 'last_week', label: 'Last Week' },
                 { value: 'last_month', label: 'Last Month' },
+                { value: 'custom', label: 'Custom Range' },
               ] as { value: DateFilter; label: string }[]).map(({ value, label }) => (
                 <button
                   key={value}
@@ -460,6 +472,43 @@ export default function EmployeeUnpaidBalancePage() {
               </select>
             </div>
           </div>
+
+          {/* Custom date range inputs */}
+          {dateFilter === 'custom' && (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">From</label>
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={e => setCustomFrom(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">To</label>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={e => setCustomTo(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              {(customFrom || customTo) && (
+                <button
+                  onClick={() => { setCustomFrom(''); setCustomTo('') }}
+                  className="text-xs font-semibold transition-colors"
+                  style={{ color: '#6b7280' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Client table */}
