@@ -1,23 +1,33 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Fraunces, JetBrains_Mono } from 'next/font/google'
+import { Fraunces, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { Toaster } from 'react-hot-toast'
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
 const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif', axes: ['opsz'] })
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'SEIV',
   description: 'Point of Sale System for Daily Sales Reporting',
+  icons: {
+    icon: '/siev_gold.png',
+    apple: '/siev_gold.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${fraunces.variable} ${mono.variable} ${jakarta.className}`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className={`${fraunces.variable} ${mono.variable}`}>
         <AuthProvider>
           <OrganizationProvider>
             {children}

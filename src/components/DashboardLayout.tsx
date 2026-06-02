@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -56,7 +57,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
     },
     {
-      name: 'Unpaid Bills',
+      name: 'Invoices',
       href: '/admin/unpaid-bills',
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     },
@@ -89,7 +90,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#FAF8F4' }}>
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -102,16 +103,15 @@ export default function DashboardLayout({ children }: SidebarProps) {
         {/* Brand */}
         <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(201,168,76,.09)', border: '1px solid rgba(201,168,76,.22)' }}>
-              <svg className="w-4 h-4" fill="none" stroke="#C9A84C" strokeWidth="1.6" viewBox="0 0 24 24">
-                <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-sans font-bold tracking-widest text-gold-500" style={{ fontSize: 16 }}>SEIV</p>
-              <p className="font-serif text-white/90 leading-tight" style={{ fontSize: 12 }}>See Clearly</p>
-            </div>
+            <Image
+              src="/siev_gold.png"
+              alt="SEIV"
+              width={36}
+              height={36}
+              className="object-contain shrink-0"
+              priority
+            />
+            <span className="font-bold tracking-wide" style={{ fontSize: 18, letterSpacing: '.04em', color: '#C9A84C' }}>Seiv</span>
           </div>
           {/* User row */}
           <div className="flex items-center gap-2 mt-3">
@@ -202,7 +202,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
           </div>
 
           {/* Date */}
-          <p className="hidden sm:block font-mono text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
+          <p className="hidden sm:block font-sans text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
             {new Date().toLocaleDateString('en-UG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
           </p>
         </header>

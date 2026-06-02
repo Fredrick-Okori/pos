@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase'
 import { DailyReport, Profile } from '@/types'
+import { ACCOUNTS, AccountIcon } from '@/lib/accounts'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
@@ -12,7 +13,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import Link from 'next/link'
 
 export default function AdminDashboard() {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const { selectedOrg } = useOrganization()
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
@@ -236,108 +237,163 @@ export default function AdminDashboard() {
   return (
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
+
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-500">View and manage all employee sales reports</p>
+          <p className="text-sm text-gray-500 mt-0.5">Sales reports across all employees</p>
         </div>
 
-          {/* Filters */}
-          <div className="card mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="label">Employee</label>
-                <select
-                  value={selectedEmployee}
-                  onChange={(e) => setSelectedEmployee(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="all">All Employees</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="label">From Date</label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="label">To Date</label>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="label">Quick Filters</label>
-                <div className="flex gap-2">
-                  <button onClick={() => setQuickFilter('today')} className="btn-secondary text-xs px-2 py-1">Today</button>
-                  <button onClick={() => setQuickFilter('thisMonth')} className="btn-secondary text-xs px-2 py-1">This Month</button>
-                  <button onClick={() => setQuickFilter('lastMonth')} className="btn-secondary text-xs px-2 py-1">Last Month</button>
+        {/* Filters */}
+        <div className="card mb-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="label">Employee</label>
+              <select value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)} className="input-field">
+                <option value="all">All Employees</option>
+                {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.full_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">From</label>
+              <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} className="input-field" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-400 mr-1">Quick:</span>
+            {[
+              { key: 'today', label: 'Today' },
+              { key: 'thisMonth', label: 'This Month' },
+              { key: 'lastMonth', label: 'Last Month' },
+            ].map(f => (
+              <button key={f.key} onClick={() => setQuickFilter(f.key)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340' }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        {(() => {
+          const netCash = summary.cashAtHand - summary.expenses
+          const netPositive = netCash >= 0
+          const stats = [
+            {
+              label: 'Total Sales',
+              value: summary.totalSales,
+              iconBg: '#0C2340',
+              valueColor: '#0C2340',
+              icon: (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Cash at Hand',
+              value: summary.cashAtHand,
+              iconBg: '#059669',
+              valueColor: '#059669',
+              icon: (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Expenses',
+              value: summary.expenses,
+              iconBg: '#dc2626',
+              valueColor: '#dc2626',
+              icon: (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Invoices',
+              value: summary.unpaidBills,
+              iconBg: '#d97706',
+              valueColor: '#d97706',
+              icon: (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              ),
+            },
+            {
+              label: 'Net Cash',
+              value: netCash,
+              iconBg: netPositive ? '#059669' : '#dc2626',
+              valueColor: netPositive ? '#059669' : '#dc2626',
+              icon: netPositive ? (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              ),
+            },
+          ]
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+              {stats.map(stat => (
+                <div key={stat.label} className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl shadow-sm" style={{ background: stat.iconBg }}>
+                    {stat.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-500 leading-tight">{stat.label}</p>
+                    <p className="text-2xl font-black leading-tight mt-0.5" style={{ color: stat.valueColor }}>
+                      {stat.value.toLocaleString()}
+                    </p>
+                    <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          </div>
+          )
+        })()}
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
-            <div className="card">
-              <p className="text-sm text-gray-500">Total Sales</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalSales.toLocaleString()}</p>
-            </div>
-            <div className="card">
-              <p className="text-sm text-gray-500">Cash at Hand</p>
-              <p className="text-2xl font-bold text-emerald-600">{summary.cashAtHand.toLocaleString()}</p>
-            </div>
-            <div className="card">
-              <p className="text-sm text-gray-500">Total Expenses</p>
-              <p className="text-2xl font-bold text-red-600">{summary.expenses.toLocaleString()}</p>
-            </div>
-            <div className="card">
-              <p className="text-sm text-gray-500">Unpaid Bills</p>
-              <p className="text-2xl font-bold text-amber-600">{summary.unpaidBills.toLocaleString()}</p>
-            </div>
-            <div className="card">
-              <p className="text-sm text-gray-500">Net Cash</p>
-              <p className={`text-2xl font-bold ${summary.cashAtHand - summary.expenses >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {(summary.cashAtHand - summary.expenses).toLocaleString()}
-              </p>
-            </div>
+        {/* Payment Breakdown */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Payment Breakdown</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {ACCOUNTS.map((account) => {
+              const accountValues: Record<string, number> = {
+                airtel_money: summary.airtelMoney,
+                mtn_money: summary.mtnMoney,
+                visa_card: summary.visaCard,
+                cash: summary.cash,
+              }
+              const value = accountValues[account.key] ?? 0
+              return (
+                <div key={account.key} className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm">
+                    <AccountIcon type={account.key} size={44} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
+                    <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
+                      {value.toLocaleString()}
+                    </p>
+                    <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          {/* Payment Breakdown */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="card bg-red-50">
-              <p className="text-sm text-red-700">Airtel Money</p>
-              <p className="text-xl font-bold text-red-800">{summary.airtelMoney.toLocaleString()}</p>
-            </div>
-            <div className="card bg-yellow-50">
-              <p className="text-sm text-yellow-700">MTN Money</p>
-              <p className="text-xl font-bold text-yellow-800">{summary.mtnMoney.toLocaleString()}</p>
-            </div>
-            <div className="card bg-blue-50">
-              <p className="text-sm text-blue-700">Visa Card</p>
-              <p className="text-xl font-bold text-blue-800">{summary.visaCard.toLocaleString()}</p>
-            </div>
-            <div className="card bg-green-50">
-              <p className="text-sm text-green-700">Cash</p>
-              <p className="text-xl font-bold text-green-800">{summary.cash.toLocaleString()}</p>
-            </div>
-            <div className="card bg-purple-50">
-              <p className="text-sm text-purple-700">Complementaries</p>
-              <p className="text-xl font-bold text-purple-800">{summary.complementaries.toLocaleString()}</p>
-            </div>
-          </div>
+        </div>
 
           {/* Outstanding Unpaid Balances */}
           <div className="card mb-6">
@@ -421,84 +477,98 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* Reports Table */}
-          <div className="card overflow-hidden">
-            <h2 className="text-lg font-semibold mb-4">Daily Reports</h2>
-            
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading reports...</p>
-              </div>
-            ) : reports.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">No reports found for the selected criteria.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Employee</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total Sales</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cash at Hand</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Expenses</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Unpaid</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reports.map((report) => {
-                      const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
-                      const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
-                      
-                      return (
-                        <tr key={report.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {format(new Date(report.report_date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {(report as any).profiles?.full_name || 'Unknown'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
-                            {Number(report.total_sales).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-emerald-600">
-                            {Number(report.cash_at_hand).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-red-600">
-                            {expenses.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-amber-600">
-                            {unpaid.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-center">
-                            {report.is_edited ? (
-                              <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
-                                Edited
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
-                                Original
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => openEditModal(report)}
-                              className="text-emerald-600 hover:text-emerald-800 font-medium text-sm"
-                            >
-                              View/Edit
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {/* Reports Table */}
+        <div className="card overflow-hidden p-0">
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <h2 className="text-base font-semibold text-gray-900">Daily Reports</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{reports.length} report{reports.length !== 1 ? 's' : ''} in range</p>
           </div>
+
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
+              <p className="mt-3 text-sm text-gray-500">Loading reports...</p>
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-14">
+              <svg className="w-12 h-12 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm text-gray-400">No reports found for the selected criteria.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Employee</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Sales</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Cash at Hand</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Expenses</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Unpaid</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {reports.map(report => {
+                    const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
+                    const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
+                    return (
+                      <tr key={report.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="text-sm font-medium text-gray-900">
+                            {format(new Date(report.report_date), 'MMM dd, yyyy')}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                              style={{ background: 'linear-gradient(135deg,#1E4A7A,#0C2340)' }}>
+                              {((report as any).profiles?.full_name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm text-gray-700">{(report as any).profiles?.full_name || 'Unknown'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold font-mono text-gray-900">{Number(report.total_sales).toLocaleString()}</span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          <span className="text-sm font-mono font-semibold text-emerald-600">{Number(report.cash_at_hand).toLocaleString()}</span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          <span className="text-sm font-mono text-red-500">{expenses.toLocaleString()}</span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          <span className="text-sm font-mono text-amber-600">{unpaid.toLocaleString()}</span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center">
+                          {report.is_edited ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                              Edited
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                              Original
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          <button onClick={() => openEditModal(report)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                            style={{ background: 'rgba(12,35,64,.06)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}>
+                            View / Edit
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Edit Modal */}
         {editModalOpen && selectedReport && (
@@ -545,187 +615,148 @@ function EditReportModal({ report, onClose, onSave, saving }: EditModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-bold">Report Details</h2>
-              <p className="text-sm text-gray-500">
-                {format(new Date(report.report_date), 'MMMM dd, yyyy')} - {(report as any).profiles?.full_name}
-              </p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-start justify-between" style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Report Details</h2>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {format(new Date(report.report_date), 'MMMM dd, yyyy')} · {(report as any).profiles?.full_name}
+            </p>
           </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Sales Data */}
+
+          {/* Calculated summary banner */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(16,185,129,.07)', border: '1px solid rgba(16,185,129,.2)' }}>
+              <p className="text-xs text-emerald-700 font-medium mb-1">Cash at Hand</p>
+              <p className="text-xl font-bold font-mono text-emerald-600">{cashAtHand.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(220,38,38,.05)', border: '1px solid rgba(220,38,38,.18)' }}>
+              <p className="text-xs text-red-600 font-medium mb-1">Expenses</p>
+              <p className="text-xl font-bold font-mono text-red-600">{expenses.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl px-4 py-3 text-center"
+              style={{
+                background: cashAtHand - expenses >= 0 ? 'rgba(16,185,129,.07)' : 'rgba(220,38,38,.05)',
+                border: `1px solid ${cashAtHand - expenses >= 0 ? 'rgba(16,185,129,.2)' : 'rgba(220,38,38,.18)'}`,
+              }}>
+              <p className="text-xs font-medium mb-1" style={{ color: cashAtHand - expenses >= 0 ? '#065f46' : '#991b1b' }}>Net Cash</p>
+              <p className={`text-xl font-bold font-mono ${cashAtHand - expenses >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {(cashAtHand - expenses).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Edit notice */}
+          {report.is_edited && (
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm"
+              style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)' }}>
+              <svg className="w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-amber-800 font-medium">
+                This report was edited
+                {report.edited_at && <span className="font-normal text-amber-700 ml-1">on {format(new Date(report.edited_at), 'MMM dd, yyyy HH:mm')}</span>}
+              </p>
+            </div>
+          )}
+
+          {/* Sales inputs */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Sales Figures</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Total Sales</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.total_sales}
-                  onChange={(e) => setFormData(prev => ({ ...prev, total_sales: parseFloat(e.target.value) || 0 }))}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="label"><span className="flex items-center"><span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>Cash</span></label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.cash || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cash: parseFloat(e.target.value) || 0 }))}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="label">Airtel Money</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.airtel_money}
-                  onChange={(e) => setFormData(prev => ({ ...prev, airtel_money: parseFloat(e.target.value) || 0 }))}
-                  className="input-field"
-                />
-              </div>
-            <div>
-              <label className="label">MTN Money</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.mtn_money}
-                onChange={(e) => setFormData(prev => ({ ...prev, mtn_money: parseFloat(e.target.value) || 0 }))}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label">Visa Card</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.visa_card}
-                onChange={(e) => setFormData(prev => ({ ...prev, visa_card: parseFloat(e.target.value) || 0 }))}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label">Complementaries</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.complementaries}
-                onChange={(e) => setFormData(prev => ({ ...prev, complementaries: parseFloat(e.target.value) || 0 }))}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label">Discounts</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.discounts}
-                onChange={(e) => setFormData(prev => ({ ...prev, discounts: parseFloat(e.target.value) || 0 }))}
-                className="input-field"
-              />
+              {[
+                { label: 'Total Sales', key: 'total_sales' as const },
+                { label: 'Cash', key: 'cash' as const },
+                { label: 'Airtel Money', key: 'airtel_money' as const },
+                { label: 'MTN Money', key: 'mtn_money' as const },
+                { label: 'Visa Card', key: 'visa_card' as const },
+                { label: 'Complementaries', key: 'complementaries' as const },
+                { label: 'Discounts', key: 'discounts' as const },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <label className="label">{label}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData[key] || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+                    className="input-field"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Calculated Values */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold mb-3">Calculated Values</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Cash at Hand</p>
-                <p className="text-lg font-bold text-emerald-600">{cashAtHand.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Total Expenses</p>
-                <p className="text-lg font-bold text-red-600">{expenses.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Net Cash</p>
-                <p className={`text-lg font-bold ${cashAtHand - expenses >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {(cashAtHand - expenses).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Expenses List */}
+          {/* Expenses list */}
           {report.expenses && report.expenses.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-3">Expenses</h3>
-              <div className="bg-red-50 rounded-lg p-4">
-                <ul className="space-y-2">
-                  {report.expenses.map((expense) => (
-                    <li key={expense.id} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{expense.description}</span>
-                      <span className="font-medium">{Number(expense.amount).toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Expenses</p>
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(220,38,38,.15)' }}>
+                {report.expenses.map((expense, i) => (
+                  <div key={expense.id} className="flex items-center justify-between px-4 py-2.5 text-sm"
+                    style={{ background: i % 2 === 0 ? 'rgba(220,38,38,.03)' : 'transparent', borderTop: i > 0 ? '1px solid rgba(220,38,38,.08)' : undefined }}>
+                    <span className="text-gray-600">{expense.description}</span>
+                    <span className="font-mono font-semibold text-red-600">{Number(expense.amount).toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Unpaid Bills List */}
+          {/* Invoices list */}
           {report.unpaid_bills && report.unpaid_bills.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-3">Unpaid Bills ({unpaidBills.toLocaleString()} total)</h3>
-              <div className="bg-amber-50 rounded-lg p-4">
-                <ul className="space-y-2">
-                  {report.unpaid_bills.map((bill) => (
-                    <li key={bill.id} className="flex justify-between text-sm">
-                      <div>
-                        <span className="font-medium">{bill.customer_name}</span>
-                        {bill.notes && <span className="text-gray-500 ml-2">({bill.notes})</span>}
-                      </div>
-                      <span className="font-medium">{Number(bill.amount).toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Invoices</p>
+                <span className="text-xs font-mono font-semibold text-amber-600">{unpaidBills.toLocaleString()} UGX total</span>
+              </div>
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(245,158,11,.2)' }}>
+                {report.unpaid_bills.map((bill, i) => (
+                  <div key={bill.id} className="flex items-center justify-between px-4 py-2.5 text-sm"
+                    style={{ background: i % 2 === 0 ? 'rgba(245,158,11,.04)' : 'transparent', borderTop: i > 0 ? '1px solid rgba(245,158,11,.1)' : undefined }}>
+                    <div>
+                      <span className="font-medium text-gray-800">{bill.customer_name}</span>
+                      {bill.notes && <span className="text-gray-400 ml-2 text-xs">({bill.notes})</span>}
+                    </div>
+                    <span className="font-mono font-semibold text-amber-600">{Number(bill.amount).toLocaleString()}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Admin Comment */}
+          {/* Admin comment */}
           <div>
-            <label className="label">Admin Comment</label>
+            <label className="label">Admin Comment <span className="text-gray-400 font-normal">(optional)</span></label>
             <textarea
               value={formData.admin_comment}
-              onChange={(e) => setFormData(prev => ({ ...prev, admin_comment: e.target.value }))}
+              onChange={e => setFormData(prev => ({ ...prev, admin_comment: e.target.value }))}
               className="input-field h-24"
               placeholder="Add a comment for the employee..."
             />
           </div>
 
-          {/* Edit History */}
-          {report.is_edited && (
-            <div className="bg-amber-50 border border-amber-200-amber-700 rounded-lg p-3 text-sm">
-              <p className="text-amber-800">
-                <span className="font-medium">⚠️ This report was edited</span>
-                {report.edited_at && (
-                  <span className="ml-2">on {format(new Date(report.edited_at), 'MMM dd, yyyy HH:mm')}</span>
-                )}
-              </p>
-            </div>
-          )}
-
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+          <div className="flex gap-3 pt-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+            <button type="button" onClick={onClose} disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-primary flex-1">
-              {saving ? 'Saving...' : 'Save Changes'}
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+              style={{ background: '#0C2340' }}>
+              {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </form>

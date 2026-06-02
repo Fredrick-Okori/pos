@@ -40,7 +40,6 @@ export interface DailyReport {
   created_at: string
   updated_at: string
   // New payment / sales fields
-  stanbic: number
   usd_amount: number
   exchange_rate: number
   bar_sales: number
@@ -98,7 +97,6 @@ export interface ReportFormData {
   complementaries: number
   discounts: number
   // New payment / sales breakdown fields
-  stanbic: number
   usd_amount: number
   exchange_rate: number
   bar_sales: number
@@ -133,7 +131,7 @@ export interface ClientCharge {
   created_at: string
 }
 
-export type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
+export type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card'
 
 export interface ClientPayment {
   id: string

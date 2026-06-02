@@ -334,7 +334,7 @@ export default function EmployeeReports() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total Sales</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Cash at Hand</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Expenses</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Unpaid Bills</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Invoices</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Status</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
                   </tr>

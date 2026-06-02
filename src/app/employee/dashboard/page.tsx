@@ -41,7 +41,6 @@ export default function EmployeeDashboard() {
     cash: 0,
     complementaries: 0,
     discounts: 0,
-    stanbic: 0,
     usd_amount: 0,
     exchange_rate: 3700,
     bar_sales: 0,
@@ -93,7 +92,7 @@ export default function EmployeeDashboard() {
           cash: data.cash,
           complementaries: data.complementaries,
           discounts: data.discounts,
-          stanbic: data.stanbic ?? 0,
+
           usd_amount: data.usd_amount ?? 0,
           exchange_rate: data.exchange_rate ?? 3700,
           bar_sales: data.bar_sales ?? 0,
@@ -114,7 +113,6 @@ export default function EmployeeDashboard() {
           cash: 0,
           complementaries: 0,
           discounts: 0,
-          stanbic: 0,
           usd_amount: 0,
           exchange_rate: 3700,
           bar_sales: 0,
@@ -263,7 +261,8 @@ export default function EmployeeDashboard() {
 
   const totalExpenses = formData.expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
   const totalUnpaidBills = formData.unpaid_bills.reduce((sum, bill) => sum + (Number(bill.amount) || 0), 0)
-  const totalPayments = Number(formData.airtel_money) + Number(formData.mtn_money) + Number(formData.visa_card) + Number(formData.cash)
+  const usdInUgx = Math.round(Number(formData.usd_amount) * Number(formData.exchange_rate))
+  const totalPayments = Number(formData.airtel_money) + Number(formData.mtn_money) + Number(formData.visa_card) + Number(formData.cash) + usdInUgx
   const totalDeductions = Number(formData.complementaries) + Number(formData.discounts)
   const netSales = Number(formData.total_sales) - totalDeductions
   const paymentDifference = totalPayments - netSales
@@ -273,7 +272,7 @@ export default function EmployeeDashboard() {
 
   // Reconciliation: compares total collected (all payment methods + bills + expenses + deductions) against total_sales
   // Uses formData.cash (the cash received into the till), not the computed cashAtHand
-  const totalCash = formData.airtel_money + formData.mtn_money + formData.visa_card + formData.cash + formData.stanbic + (formData.usd_amount * formData.exchange_rate)
+  const totalCash = formData.airtel_money + formData.mtn_money + formData.visa_card + formData.cash + (formData.usd_amount * formData.exchange_rate)
   const totalBills = formData.unpaid_bills.reduce((s, b) => s + Number(b.amount), 0)
   const reconCollected = totalCash + totalBills + totalExpenses + totalDeductions
   const reconDiff = reconCollected - formData.total_sales
@@ -301,6 +300,16 @@ export default function EmployeeDashboard() {
       toast.error('A report already exists for this date. Select a different date.')
       return
     }
+    const incompleteExpense = formData.expenses.find(e => !e.description || !(Number(e.amount) > 0))
+    if (incompleteExpense) {
+      toast.error('Each expense must have both a description and an amount.')
+      return
+    }
+    const incompleteBill = formData.unpaid_bills.find(b => !b.customer_name || !(Number(b.amount) > 0))
+    if (incompleteBill) {
+      toast.error('Each invoice must have both a customer name and an amount.')
+      return
+    }
     setSaving(true)
     try {
       const { data, error } = await supabase
@@ -316,7 +325,6 @@ export default function EmployeeDashboard() {
           cash: formData.cash,
           complementaries: formData.complementaries,
           discounts: formData.discounts,
-          stanbic: formData.stanbic,
           usd_amount: formData.usd_amount,
           exchange_rate: formData.exchange_rate,
           bar_sales: formData.bar_sales,
@@ -359,7 +367,6 @@ export default function EmployeeDashboard() {
           airtelMoney: formData.airtel_money,
           mtnMoney: formData.mtn_money,
           visaCard: formData.visa_card,
-          stanbic: formData.stanbic,
           usdAmount: formData.usd_amount,
           exchangeRate: formData.exchange_rate,
           barSales: formData.bar_sales,
@@ -393,9 +400,15 @@ export default function EmployeeDashboard() {
   return (
     <ProtectedRoute allowedRoles={['employee']}>
       <DashboardLayout>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Daily Sales Report</h1>
-          <p className="text-gray-500">Welcome, {profile?.full_name}! Enter your daily sales data below.</p>
+        <div className="flex items-start justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Daily Sales Report</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Welcome back, {profile?.full_name}</p>
+          </div>
+          <span className="shrink-0 text-xs font-sans font-medium px-3 py-1.5 rounded-lg"
+            style={{ background: 'rgba(12,35,64,.06)', color: '#0C2340' }}>
+            {format(new Date(), 'EEE, dd MMM yyyy')}
+          </span>
         </div>
 
         {/* Account Cards */}
@@ -405,26 +418,29 @@ export default function EmployeeDashboard() {
             const spent = expensesByAccount[account.key] || 0
             const balance = value - spent
             return (
-              <div key={account.key} className={`rounded-xl border p-4 ${account.bgColor}`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <AccountIcon type={account.key} className={account.iconColor} />
-                  <span className="text-sm font-semibold text-gray-700">{account.label}</span>
+              <div key={account.key} className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm">
+                  <AccountIcon type={account.key} size={44} />
                 </div>
-                <div className={`text-2xl font-bold ${account.color}`}>
-                  {value.toLocaleString()}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
+                  <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
+                    {value.toLocaleString()}
+                  </p>
+                  <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                  {spent > 0 && (
+                    <div className="mt-1.5 pt-1.5 border-t border-gray-300">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Expenses</span>
+                        <span className="text-red-500">-{spent.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-semibold mt-0.5">
+                        <span className="text-gray-500">Balance</span>
+                        <span className={balance >= 0 ? 'text-green-600' : 'text-red-600'}>{balance.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {spent > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Expenses</span>
-                      <span className="text-red-500">-{spent.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-semibold mt-1">
-                      <span className="text-gray-500">Balance</span>
-                      <span className={balance >= 0 ? 'text-green-600' : 'text-red-600'}>{balance.toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
               </div>
             )
           })}
@@ -482,31 +498,42 @@ export default function EmployeeDashboard() {
               )}
 
               <div className="card">
-                <h2 className="text-lg font-semibold mb-4">Report Date</h2>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value)
-                    setFormData(prev => ({ ...prev, report_date: e.target.value }))
-                  }}
-                  className="input-field w-48"
-                />
-                {existingReport && (
-                  <p className="text-sm mt-2" style={{ color: '#C9A84C' }}>
-                    A report already exists for this date. Choose a different date to create a new report.
-                  </p>
-                )}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Report Date</p>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value)
+                        setFormData(prev => ({ ...prev, report_date: e.target.value }))
+                      }}
+                      className="input-field w-48"
+                    />
+                  </div>
+                  {existingReport && (
+                    <span className="text-xs font-semibold px-3 py-1.5 rounded-full"
+                      style={{ background: 'rgba(201,168,76,.12)', color: '#C9A84C' }}>
+                      Report exists for this date
+                    </span>
+                  )}
+                </div>
                 {existingReport?.admin_comment && (
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-blue-800">Admin Comment:</p>
-                    <p className="text-sm text-blue-700">{existingReport.admin_comment}</p>
+                  <div className="mt-4 px-4 py-3 rounded-xl flex items-start gap-2.5"
+                    style={{ background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.18)' }}>
+                    <svg className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700 mb-0.5">Admin Comment</p>
+                      <p className="text-sm text-blue-600">{existingReport.admin_comment}</p>
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="card">
-                <h2 className="text-lg font-semibold mb-4">Sales Information</h2>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Sales Information</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Total Sales</label>
@@ -521,29 +548,11 @@ export default function EmployeeDashboard() {
                     <CurrencyInput value={formData.complementaries} onValueChange={(v) => handleInputChange('complementaries', v)} className="input-field" disabled={isReportLocked} />
                   </div>
                 </div>
-                {/* Sales breakdown (optional) */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-400 mb-3">Sales Breakdown (optional)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="label">Bar Sales</label>
-                      <CurrencyInput value={formData.bar_sales} onValueChange={(v) => handleInputChange('bar_sales', v)} className="input-field" disabled={isReportLocked} />
-                    </div>
-                    <div>
-                      <label className="label">Kitchen Sales</label>
-                      <CurrencyInput value={formData.kitchen_sales} onValueChange={(v) => handleInputChange('kitchen_sales', v)} className="input-field" disabled={isReportLocked} />
-                    </div>
-                    <div>
-                      <label className="label">Shisha Sales</label>
-                      <CurrencyInput value={formData.shisha_sales} onValueChange={(v) => handleInputChange('shisha_sales', v)} className="input-field" disabled={isReportLocked} />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="card">
-                <h2 className="text-lg font-semibold mb-4">Account Receipts</h2>
-                <p className="text-sm text-gray-400 mb-4">How much was received into each account from sales today?</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Account Receipts</p>
+                <p className="text-xs text-gray-400 mb-4">How much was received into each account from sales today?</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {ACCOUNTS.map((account) => (
                     <div key={account.key}>
@@ -561,21 +570,12 @@ export default function EmployeeDashboard() {
                       />
                     </div>
                   ))}
-                  {/* Stanbic (UGX) */}
-                  <div>
-                    <label className="label">Stanbic (UGX)</label>
-                    <CurrencyInput
-                      value={formData.stanbic}
-                      onValueChange={(v) => handleInputChange('stanbic', v)}
-                      className="input-field"
-                      disabled={isReportLocked}
-                    />
-                  </div>
+
                 </div>
 
                 {/* USD section */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-400 mb-3">USD Payments</p>
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">USD Payments</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">USD Amount ($)</label>
@@ -609,34 +609,40 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="card">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold">Expenses of the Day</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expenses of the Day</p>
                   {!isReportLocked && (
-                    <button type="button" onClick={addExpense} className="btn-secondary text-sm">+ Add Expense</button>
+                    <button type="button" onClick={addExpense}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                      style={{ background: 'rgba(220,38,38,.07)', color: '#dc2626', border: '1px solid rgba(220,38,38,.2)' }}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Add Expense
+                    </button>
                   )}
                 </div>
                 {formData.expenses.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No expenses added yet.</p>
+                  <p className="text-sm text-gray-400">No expenses added yet.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {formData.expenses.map((expense, index) => (
-                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex gap-3 items-start">
+                      <div key={index} className="rounded-xl px-4 py-3"
+                        style={{ background: 'rgba(220,38,38,.03)', border: '1px solid rgba(220,38,38,.1)' }}>
+                        <div className="flex gap-3 items-center">
                           <div className="flex-1">
                             <input type="text" value={expense.description} onChange={(e) => updateExpense(index, 'description', e.target.value)} className="input-field" placeholder="Expense description" disabled={isReportLocked} />
                           </div>
-                          <div className="w-32">
+                          <div className="w-32 shrink-0">
                             <CurrencyInput value={Number(expense.amount) || 0} onValueChange={(v) => updateExpense(index, 'amount', v)} className="input-field" placeholder="Amount" disabled={isReportLocked} />
                           </div>
                           {!isReportLocked && (
-                            <button type="button" onClick={() => removeExpense(index)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <button type="button" onClick={() => removeExpense(index)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                           )}
                         </div>
                         <div className="mt-2">
                           <select value={expense.paid_from} onChange={(e) => updateExpense(index, 'paid_from', e.target.value)} className="input-field text-sm" disabled={isReportLocked}>
-                            {ACCOUNTS.map((account) => (
+                            {ACCOUNTS.map(account => (
                               <option key={account.key} value={account.key}>{account.label}</option>
                             ))}
                           </select>
@@ -646,23 +652,30 @@ export default function EmployeeDashboard() {
                   </div>
                 )}
                 {formData.expenses.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-right font-semibold">Total Expenses: <span className="text-red-600">{totalExpenses.toLocaleString()}</span></p>
+                  <div className="mt-4 pt-3 flex items-center justify-end gap-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <span className="text-xs text-gray-400">Total Expenses</span>
+                    <span className="font-bold font-mono text-red-600">{totalExpenses.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">UGX</span>
                   </div>
                 )}
               </div>
 
               <div className="card">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold">Unpaid Bills</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Invoices</p>
                   {!isReportLocked && (
-                    <button type="button" onClick={addUnpaidBill} className="btn-secondary text-sm">+ Add Unpaid Bill</button>
+                    <button type="button" onClick={addUnpaidBill}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                      style={{ background: 'rgba(245,158,11,.08)', color: '#d97706', border: '1px solid rgba(245,158,11,.25)' }}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Add Invoice
+                    </button>
                   )}
                 </div>
                 {formData.unpaid_bills.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No unpaid bills recorded.</p>
+                  <p className="text-sm text-gray-400">No invoices recorded.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {formData.unpaid_bills.map((bill, index) => {
                       const query = bill.customer_name.toLowerCase()
                       const suggestions = query
@@ -675,7 +688,8 @@ export default function EmployeeDashboard() {
                       const showCreateBtn = !isReportLocked && nameTyped.length > 0 && !nameExists
 
                       return (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                        <div key={index} className="rounded-xl px-4 py-3"
+                          style={{ background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.15)' }}>
                           <div className="flex gap-3 items-start">
                             <div className="flex-1 relative">
                               <input
@@ -746,15 +760,17 @@ export default function EmployeeDashboard() {
                   </div>
                 )}
                 {formData.unpaid_bills.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-right font-semibold">Total Unpaid: <span className="text-amber-600">{totalUnpaidBills.toLocaleString()}</span></p>
+                  <div className="mt-4 pt-3 flex items-center justify-end gap-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <span className="text-xs text-gray-400">Total Unpaid</span>
+                    <span className="font-bold font-mono text-amber-600">{totalUnpaidBills.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">UGX</span>
                   </div>
                 )}
               </div>
 
               {/* Notes */}
               <div className="card">
-                <h2 className="text-lg font-semibold mb-4">Additional Notes</h2>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Additional Notes</p>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
@@ -764,89 +780,169 @@ export default function EmployeeDashboard() {
                 />
               </div>
 
-              {/* Only show submit if no report exists for this date */}
               {!isReportLocked && (
-                <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-lg">
-                  {saving ? 'Saving...' : 'Save & Lock Report'}
+                <button type="submit" disabled={saving}
+                  className="w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: '#0C2340' }}>
+                  {saving ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Save &amp; Lock Report
+                    </>
+                  )}
                 </button>
               )}
             </form>
           </div>
 
           <div className="lg:col-span-1">
-            <div className="card sticky top-8">
-              <h2 className="text-lg font-semibold mb-4">Daily Summary</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between"><span className="text-gray-500">Total Sales</span><span className="font-semibold">{Number(formData.total_sales).toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Complementaries</span><span className="text-purple-600">-{Number(formData.complementaries).toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Discounts</span><span className="text-orange-600">-{Number(formData.discounts).toLocaleString()}</span></div>
-                <hr className="border-gray-200" />
-                <div className="flex justify-between font-semibold"><span className="text-gray-900">Net Sales</span><span className={netSales >= 0 ? 'text-green-600' : 'text-red-600'}>{netSales.toLocaleString()}</span></div>
-                <hr className="border-gray-200" />
-                <p className="text-xs text-gray-400 font-medium">Account Receipts:</p>
-                {ACCOUNTS.map((account) => (
-                  <div key={account.key} className="flex justify-between text-sm">
+
+            {/* Daily Summary */}
+            <div className="card sticky top-8 space-y-0">
+              <p className="font-sans text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Daily Summary</p>
+
+              {/* Total Received hero */}
+              <div className="rounded-2xl p-5 mb-6 flex items-center gap-4"
+                style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl shadow-sm"
+                  style={{ background: '#059669' }}>
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-sans text-sm font-medium text-gray-500 leading-tight">Total Received</p>
+                  <p className="font-sans text-2xl font-black leading-tight mt-0.5" style={{ color: '#059669' }}>
+                    {totalPayments.toLocaleString()}
+                  </p>
+                  <p className="font-sans text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                </div>
+              </div>
+
+              {/* Sales rows */}
+              <div className="space-y-2 text-sm font-sans">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Total Sales</span>
+                  <span className="font-semibold text-gray-900">{Number(formData.total_sales).toLocaleString()}</span>
+                </div>
+                {Number(formData.complementaries) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-xs">Complementaries</span>
+                    <span className="text-purple-500 text-xs">−{Number(formData.complementaries).toLocaleString()}</span>
+                  </div>
+                )}
+                {Number(formData.discounts) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-xs">Discounts</span>
+                    <span className="text-orange-500 text-xs">−{Number(formData.discounts).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-1" style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <span className="text-gray-700 font-medium">Net Sales</span>
+                  <span className={`font-bold ${netSales >= 0 ? 'text-gray-900' : 'text-red-600'}`}>{netSales.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Account receipts */}
+              <div className="mt-3 pt-3 space-y-2 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Account Receipts</p>
+                {ACCOUNTS.map(account => (
+                  <div key={account.key} className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">{account.label}</span>
-                    <span className={account.color}>{Number(formData[account.key]).toLocaleString()}</span>
+                    <span className={`font-medium ${account.color}`}>{Number(formData[account.key]).toLocaleString()}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm font-semibold border-t border-gray-200 pt-2">
-                  <span className="text-gray-500">Total Received</span><span className="text-green-600 font-bold">{totalPayments.toLocaleString()}</span>
+                {usdInUgx > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">USD <span className="text-xs text-gray-400">(${Number(formData.usd_amount).toLocaleString()} × {Number(formData.exchange_rate).toLocaleString()})</span></span>
+                    <span className="font-medium text-blue-600">{usdInUgx.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-1" style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <span className="text-xs text-gray-500">Total Received</span>
+                  <span className="font-bold text-emerald-600 text-sm">{totalPayments.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Unpaid Bills</span><span className="text-amber-600">-{totalUnpaidBills.toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Total Expenses</span><span className="text-red-600">-{totalExpenses.toLocaleString()}</span></div>
-                <hr className="border-gray-200" />
-                <div className="flex justify-between font-bold text-lg"><span className="text-gray-900">Cash at Hand</span><span className={cashAtHand >= 0 ? 'text-green-600' : 'text-red-600'}>{cashAtHand.toLocaleString()}</span></div>
+              </div>
 
-                {/* Balance Status Banner */}
-                <hr className="border-gray-200" />
-                <div className={`p-3 rounded-lg text-center ${
-                  balanceStatus === 'balanced'
-                    ? 'bg-emerald-50 border border-emerald-200-emerald-800'
-                    : balanceStatus === 'excess'
-                    ? 'bg-blue-50 border border-blue-200-blue-800'
-                    : 'bg-red-50 border border-red-200-red-800'
-                }`}>
-                  <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${
-                    balanceStatus === 'balanced' ? 'text-emerald-600'
-                    : balanceStatus === 'excess' ? 'text-blue-600'
-                    : 'text-red-600'
+              {/* Deductions */}
+              <div className="mt-3 pt-3 space-y-2 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Invoices</span>
+                  <span className="text-amber-600">−{totalUnpaidBills.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Total Expenses</span>
+                  <span className="text-red-500">−{totalExpenses.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Balance status */}
+              <div className="mt-3 pt-3 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <div className="px-4 py-3 rounded-xl text-center"
+                  style={{
+                    background: balanceStatus === 'balanced' ? 'rgba(16,185,129,.07)' : balanceStatus === 'excess' ? 'rgba(59,130,246,.07)' : 'rgba(220,38,38,.06)',
+                    border: `1px solid ${balanceStatus === 'balanced' ? 'rgba(16,185,129,.2)' : balanceStatus === 'excess' ? 'rgba(59,130,246,.2)' : 'rgba(220,38,38,.18)'}`,
+                  }}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${
+                    balanceStatus === 'balanced' ? 'text-emerald-600' : balanceStatus === 'excess' ? 'text-blue-600' : 'text-red-600'
                   }`}>
                     {balanceStatus === 'balanced' ? 'Balanced' : balanceStatus === 'excess' ? 'Excess' : 'Shortage'}
                   </p>
                   <p className={`text-lg font-bold ${
-                    balanceStatus === 'balanced' ? 'text-emerald-700'
-                    : balanceStatus === 'excess' ? 'text-blue-700'
-                    : 'text-red-700'
+                    balanceStatus === 'balanced' ? 'text-emerald-700' : balanceStatus === 'excess' ? 'text-blue-700' : 'text-red-700'
                   }`}>
-                    {balanceStatus === 'balanced' ? 'All accounts match' : `${Math.abs(paymentDifference).toLocaleString()}`}
+                    {balanceStatus === 'balanced' ? 'All accounts match' : Math.abs(paymentDifference).toLocaleString()}
                   </p>
                   {!paymentMatch && (
                     <p className="text-xs text-gray-400 mt-1">
-                      {balanceStatus === 'excess' ? 'Payments received exceed net sales' : 'Payments received are less than net sales'}
+                      {balanceStatus === 'excess' ? 'Payments exceed net sales' : 'Payments below net sales'}
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
+            {/* Recent Reports */}
             <div className="card mt-6">
-              <h2 className="text-lg font-semibold mb-4">Recent Reports</h2>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Recent Reports</p>
               {loading ? (
-                <p className="text-gray-400 text-sm">Loading...</p>
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300" />
+                  Loading...
+                </div>
               ) : reports.length === 0 ? (
-                <p className="text-gray-400 text-sm">No reports yet.</p>
+                <p className="text-sm text-gray-400">No reports yet.</p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {reports.slice(0, 10).map((report) => (
-                    <button key={report.id} onClick={() => setSelectedDate(report.report_date)} className={`w-full text-left p-3 rounded-lg transition-colors ${selectedDate === report.report_date ? 'bg-emerald-50 border border-emerald-200-emerald-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-sm">{format(new Date(report.report_date), 'MMM dd, yyyy')}</span>
-                        <span className="text-sm text-gray-500">{Number(report.total_sales).toLocaleString()}</span>
-                      </div>
-                      {report.is_edited && <span className="text-xs text-amber-600">Edited by admin</span>}
-                    </button>
-                  ))}
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {reports.slice(0, 10).map(report => {
+                    const isActive = selectedDate === report.report_date
+                    return (
+                      <button key={report.id} onClick={() => setSelectedDate(report.report_date)}
+                        className="w-full text-left px-3 py-2.5 rounded-xl transition-colors"
+                        style={isActive
+                          ? { background: 'rgba(12,35,64,.08)', border: '1px solid rgba(12,35,64,.15)' }
+                          : { background: 'rgba(0,0,0,.02)', border: '1px solid transparent' }
+                        }>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-800">{format(new Date(report.report_date), 'MMM dd, yyyy')}</span>
+                          <span className="text-xs font-mono text-gray-500">{Number(report.total_sales).toLocaleString()}</span>
+                        </div>
+                        {report.is_edited && (
+                          <span className="text-xs text-amber-600 font-medium">Edited by admin</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>

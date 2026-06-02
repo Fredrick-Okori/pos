@@ -1,7 +1,5 @@
 import { AccountType, AccountConfig } from '@/types'
-import { FaMobileAlt, FaSimCard } from 'react-icons/fa'
-import { BsCreditCard2Front } from 'react-icons/bs'
-import { HiOutlineBanknotes } from 'react-icons/hi2'
+import Image from 'next/image'
 import { ReactNode } from 'react'
 
 export const ACCOUNTS: AccountConfig[] = [
@@ -11,13 +9,25 @@ export const ACCOUNTS: AccountConfig[] = [
   { key: 'cash', label: 'Cash', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800', iconColor: 'text-green-500' },
 ]
 
-const ACCOUNT_ICONS: Record<AccountType, ReactNode> = {
-  airtel_money: <FaMobileAlt className="w-5 h-5" />,
-  mtn_money: <FaSimCard className="w-5 h-5" />,
-  visa_card: <BsCreditCard2Front className="w-5 h-5" />,
-  cash: <HiOutlineBanknotes className="w-5 h-5" />,
+const ACCOUNT_LOGOS: Record<AccountType, { src: string; alt: string }> = {
+  airtel_money: { src: '/Airtel_logo.svg.png', alt: 'Airtel' },
+  mtn_money: { src: '/MoMo-logo-1.png', alt: 'MTN MoMo' },
+  visa_card: { src: '/Visa_Inc.-Logo.wine.png', alt: 'Visa' },
+  cash: { src: '/minimalist-money-logo-design-template-cash-money-for-business-finance-money-investing-logo-vector.jpg', alt: 'Cash' },
 }
 
-export function AccountIcon({ type, className }: { type: AccountType; className?: string }) {
-  return <span className={className}>{ACCOUNT_ICONS[type]}</span>
+export function AccountIcon({ type, className, size = 28 }: { type: AccountType; className?: string; size?: number }) {
+  const logo = ACCOUNT_LOGOS[type]
+  return (
+    <span className={className}>
+      <Image
+        src={logo.src}
+        alt={logo.alt}
+        width={size}
+        height={size}
+        className="object-contain"
+        style={{ maxHeight: size }}
+      />
+    </span>
+  )
 }

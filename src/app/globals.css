@@ -13,9 +13,14 @@ input[type='number'] {
   appearance: textfield;
 }
 
+:root {
+  --font-sans: 'Google Sans', sans-serif;
+}
+
 body {
   background: #f4f6fa;
   color: #111827;
+  font-family: 'Google Sans', sans-serif;
 }
 
 @layer components {

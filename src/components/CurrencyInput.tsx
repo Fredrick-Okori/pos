@@ -52,7 +52,7 @@ export default function CurrencyInput({ value, onValueChange, placeholder, class
       inputMode="decimal"
       value={display}
       onChange={handleChange}
-      placeholder={placeholder ?? '0'}
+      placeholder={placeholder ?? ''}
       className={className}
       disabled={disabled}
       autoFocus={autoFocus}

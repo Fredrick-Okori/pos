@@ -99,7 +99,7 @@ export default function AdminUnpaidBills() {
     <ProtectedRoute allowedRoles={['superadmin']}>
       <DashboardLayout>
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Unpaid Bills</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
           <p className="text-gray-500">Track and manage all outstanding client balances</p>
         </div>
 
@@ -152,7 +152,7 @@ export default function AdminUnpaidBills() {
             <svg className="w-16 h-16 text-green-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-gray-400">{searchTerm ? 'No clients match your search.' : 'No unpaid bills found.'}</p>
+            <p className="text-gray-400">{searchTerm ? 'No clients match your search.' : 'No invoices found.'}</p>
           </div>
         ) : (
           <div className="card overflow-hidden p-0">

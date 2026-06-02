@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
       airtelMoney,
       mtnMoney,
       visaCard,
-      stanbic,
       usdAmount,
       exchangeRate,
       barSales,
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest) {
       airtelMoney: number
       mtnMoney: number
       visaCard: number
-      stanbic: number
       usdAmount: number
       exchangeRate: number
       barSales: number
@@ -72,7 +70,7 @@ export async function POST(req: NextRequest) {
     const totalUnpaid = unpaidBills.reduce((s, b) => s + b.amount, 0)
     const totalDeductions = complementaries + discounts
     const usdInUgx = Math.round(usdAmount * exchangeRate)
-    const totalPayments = cash + airtelMoney + mtnMoney + visaCard + stanbic + usdInUgx
+    const totalPayments = cash + airtelMoney + mtnMoney + visaCard + usdInUgx
 
     const reconColor =
       reconStatus === 'RECONCILED' ? '#34d399' :
@@ -89,7 +87,6 @@ export async function POST(req: NextRequest) {
       { label: 'Airtel Money', value: airtelMoney },
       { label: 'MTN Money',    value: mtnMoney },
       { label: 'Visa Card',    value: visaCard },
-      { label: 'Stanbic',      value: stanbic },
       ...(usdAmount > 0 ? [{ label: `USD $${usdAmount.toLocaleString()} × ${exchangeRate.toLocaleString()}`, value: usdInUgx }] : []),
     ].filter(p => p.value > 0)
 
@@ -128,11 +125,11 @@ export async function POST(req: NextRequest) {
       </table>`
 
     const billsHtml = unpaidBills.length === 0 ? '' : `
-      <!-- Unpaid Bills -->
+      <!-- Invoices -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px">
         <tr>
           <td style="padding:18px 0 10px">
-            <p style="margin:0;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em">Unpaid Bills (${unpaidBills.length})</p>
+            <p style="margin:0;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em">Invoices (${unpaidBills.length})</p>
           </td>
         </tr>
         <tr>

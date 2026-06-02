@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -108,13 +109,15 @@ export default function LoginForm() {
           }} />
 
           {/* Brand */}
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(201,168,76,.09)', border: '1px solid rgba(201,168,76,.22)' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" strokeWidth="1.6">
-                <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <span className="font-serif font-bold" style={{ color: '#C9A84C', fontSize: 22, letterSpacing: '-.01em' }}>SEIV</span>
+          <div className="relative z-10">
+            <Image
+              src="/siev_white.png"
+              alt="SEIV"
+              width={90}
+              height={54}
+              className="object-contain"
+              priority
+            />
           </div>
 
           {/* Headline */}
