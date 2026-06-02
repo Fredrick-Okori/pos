@@ -198,14 +198,14 @@ export default function AdminReports() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'Stanbic', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
+    const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
       const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
       return [
         r.report_date,
         (r as any).profiles?.full_name || 'Unknown',
-        r.total_sales, r.cash, r.airtel_money, r.mtn_money, r.visa_card, r.stanbic,
+        r.total_sales, r.cash, r.airtel_money, r.mtn_money, r.visa_card,
         r.complementaries, r.discounts, expenses, credit,
         r.recon_status || '', r.recon_diff || 0
       ]
@@ -234,13 +234,12 @@ export default function AdminReports() {
       airtel: acc.airtel + Number(r.airtel_money),
       mtn: acc.mtn + Number(r.mtn_money),
       visa: acc.visa + Number(r.visa_card),
-      stanbic: acc.stanbic + Number(r.stanbic || 0),
       comp: acc.comp + Number(r.complementaries),
       disc: acc.disc + Number(r.discounts),
       expenses: acc.expenses + expenses,
       credit: acc.credit + credit,
     }
-  }, { sales: 0, cash: 0, airtel: 0, mtn: 0, visa: 0, stanbic: 0, comp: 0, disc: 0, expenses: 0, credit: 0 })
+  }, { sales: 0, cash: 0, airtel: 0, mtn: 0, visa: 0, comp: 0, disc: 0, expenses: 0, credit: 0 })
 
   const reconBadge = (status: string | null) => {
     if (!status) return <span className="text-gray-400 text-xs">–</span>
@@ -295,7 +294,7 @@ export default function AdminReports() {
           ].map(({ label, value, color, raw }) => (
             <div key={label} className="bg-white px-4 py-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-              <p className={`text-lg font-bold font-mono ${color}`}>
+              <p className={`text-lg font-bold font-sans ${color}`}>
                 {raw ? value : (value as number).toLocaleString()}
               </p>
             </div>
@@ -358,15 +357,15 @@ export default function AdminReports() {
                   {/* Totals row */}
                   <tr className="bg-gray-800 text-white">
                     <td className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide" colSpan={2}>TOTALS</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-yellow-300">{totals.sales.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-green-300">{totals.cash.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-green-300">{totals.airtel.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-green-300">{totals.mtn.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-green-300">{totals.visa.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-gray-300">{totals.comp.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-gray-300">{totals.disc.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-amber-300">{totals.expenses.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-red-300">{totals.credit.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-yellow-300">{totals.sales.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.cash.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.airtel.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.mtn.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.visa.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.comp.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.disc.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-amber-300">{totals.expenses.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-red-300">{totals.credit.toLocaleString()}</td>
                     <td className="px-3 py-2" colSpan={3}></td>
                   </tr>
                   {/* Header row */}
@@ -394,19 +393,19 @@ export default function AdminReports() {
                     const diff = report.recon_diff || 0
                     return (
                       <tr key={report.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-700">{format(new Date(report.report_date), 'MMM dd, yyyy')}</td>
+                        <td className="px-3 py-2 whitespace-nowrap font-sans text-xs text-gray-700">{format(new Date(report.report_date), 'MMM dd, yyyy')}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{(report as any).profiles?.full_name || 'Unknown'}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono font-semibold text-gray-900">{Number(report.total_sales).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-emerald-600">{Number(report.cash).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-emerald-600">{Number(report.airtel_money).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-emerald-600">{Number(report.mtn_money).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-emerald-600">{Number(report.visa_card).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-gray-500">{Number(report.complementaries).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-gray-500">{Number(report.discounts).toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-amber-600">{expenses.toLocaleString()}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-red-600">{credit.toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans font-semibold text-gray-900">{Number(report.total_sales).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.cash).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.airtel_money).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.mtn_money).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.visa_card).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-gray-500">{Number(report.complementaries).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-gray-500">{Number(report.discounts).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-amber-600">{expenses.toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-red-600">{credit.toLocaleString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-center">{reconBadge(report.recon_status)}</td>
-                        <td className={`px-3 py-2 whitespace-nowrap text-right font-mono text-xs font-semibold ${diff > 0 ? 'text-amber-600' : diff < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        <td className={`px-3 py-2 whitespace-nowrap text-right font-sans text-xs font-semibold ${diff > 0 ? 'text-amber-600' : diff < 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-center">

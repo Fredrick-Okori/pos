@@ -282,8 +282,9 @@ export default function AdminDashboard() {
 
         {/* Summary Stats */}
         {(() => {
-          const netCash = summary.cashAtHand - summary.expenses
-          const netPositive = netCash >= 0
+          const totalReceived = summary.airtelMoney + summary.mtnMoney + summary.visaCard + summary.cash
+          const cashAtHand = totalReceived - summary.expenses
+          const cashPositive = cashAtHand >= 0
           const stats = [
             {
               label: 'Total Sales',
@@ -297,8 +298,8 @@ export default function AdminDashboard() {
               ),
             },
             {
-              label: 'Cash at Hand',
-              value: summary.cashAtHand,
+              label: 'Total Received',
+              value: totalReceived,
               iconBg: '#059669',
               valueColor: '#059669',
               icon: (
@@ -330,11 +331,11 @@ export default function AdminDashboard() {
               ),
             },
             {
-              label: 'Net Cash',
-              value: netCash,
-              iconBg: netPositive ? '#059669' : '#dc2626',
-              valueColor: netPositive ? '#059669' : '#dc2626',
-              icon: netPositive ? (
+              label: 'Cash at Hand',
+              value: cashAtHand,
+              iconBg: cashPositive ? '#059669' : '#dc2626',
+              valueColor: cashPositive ? '#059669' : '#dc2626',
+              icon: cashPositive ? (
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

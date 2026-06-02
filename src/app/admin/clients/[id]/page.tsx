@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Client, ClientCharge, ClientPayment, PaymentMode } from '@/types'
@@ -30,7 +30,6 @@ const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
   airtel_money: 'Airtel Money',
   mtn_money: 'MTN Money',
   visa_card: 'Visa Card',
-  stanbic: 'Stanbic',
 }
 
 // Payment form state
@@ -55,7 +54,6 @@ export default function ClientStatementPage() {
   const supabase = createClient()
   const { selectedOrg } = useOrganization()
   const { profile } = useAuth()
-  const router = useRouter()
 
   const [loading, setLoading] = useState(true)
   const [client, setClient] = useState<Client | null>(null)

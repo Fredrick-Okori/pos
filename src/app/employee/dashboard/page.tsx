@@ -94,7 +94,7 @@ export default function EmployeeDashboard() {
           discounts: data.discounts,
 
           usd_amount: data.usd_amount ?? 0,
-          exchange_rate: data.exchange_rate ?? 3700,
+          exchange_rate: data.exchange_rate || 3700,
           bar_sales: data.bar_sales ?? 0,
           kitchen_sales: data.kitchen_sales ?? 0,
           shisha_sales: data.shisha_sales ?? 0,
@@ -862,7 +862,7 @@ export default function EmployeeDashboard() {
                     <span className={`font-medium ${account.color}`}>{Number(formData[account.key]).toLocaleString()}</span>
                   </div>
                 ))}
-                {usdInUgx > 0 && (
+                {formData.usd_amount > 0 && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">USD <span className="text-xs text-gray-400">(${Number(formData.usd_amount).toLocaleString()} × {Number(formData.exchange_rate).toLocaleString()})</span></span>
                     <span className="font-medium text-blue-600">{usdInUgx.toLocaleString()}</span>
