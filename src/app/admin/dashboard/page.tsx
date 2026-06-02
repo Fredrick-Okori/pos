@@ -283,7 +283,7 @@ export default function AdminDashboard() {
         {/* Summary Stats */}
         {(() => {
           const totalReceived = summary.airtelMoney + summary.mtnMoney + summary.visaCard + summary.cash
-          const cashAtHand = totalReceived - summary.expenses
+          const cashAtHand = summary.totalSales - summary.expenses
           const cashPositive = cashAtHand >= 0
           const stats = [
             {

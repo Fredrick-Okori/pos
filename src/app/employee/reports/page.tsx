@@ -99,18 +99,22 @@ export default function EmployeeReports() {
   const totalSales = filteredReports.reduce((s, r) => s + Number(r.total_sales), 0)
   const totalExpenses = filteredReports.reduce((s, r) => s + (r.expenses?.reduce((e, x) => e + Number(x.amount), 0) || 0), 0)
   const totalUnpaid = filteredReports.reduce((s, r) => s + (r.unpaid_bills?.reduce((e, x) => e + Number(x.amount), 0) || 0), 0)
-  const totalCash = filteredReports.reduce((s, r) => s + Number(r.cash_at_hand), 0)
+  const totalCash = filteredReports.reduce((s, r) => {
+    const exp = r.expenses?.reduce((e, x) => e + Number(x.amount), 0) || 0
+    return s + (Number(r.total_sales) - exp)
+  }, 0)
 
   const exportPDF = () => {
     const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
       const unpaid = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+      const cashAtHand = Number(r.total_sales) - expenses
       return `<tr>
         <td>${format(new Date(r.report_date), 'MMM dd, yyyy')}</td>
         <td>${format(new Date(r.report_date), 'EEEE')}</td>
         <td style="text-align:right;font-weight:600">${Number(r.total_sales).toLocaleString()}</td>
-        <td style="text-align:right;color:#16a34a">${Number(r.cash_at_hand).toLocaleString()}</td>
+        <td style="text-align:right;color:#16a34a">${cashAtHand.toLocaleString()}</td>
         <td style="text-align:right;color:#d97706">${expenses.toLocaleString()}</td>
         <td style="text-align:right;color:#dc2626">${unpaid.toLocaleString()}</td>
         <td style="text-align:center;font-size:10px;font-weight:600;color:${r.is_edited ? '#d97706' : '#16a34a'}">${r.is_edited ? 'EDITED' : 'ORIGINAL'}</td>
@@ -343,7 +347,8 @@ export default function EmployeeReports() {
                   {filteredReports.map((report) => {
                     const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
                     const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
-                    
+                    const cashAtHand = Number(report.total_sales) - expenses
+
                     return (
                       <tr key={report.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -358,7 +363,7 @@ export default function EmployeeReports() {
                           {Number(report.total_sales).toLocaleString()}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-green-600">
-                          {Number(report.cash_at_hand).toLocaleString()}
+                          {cashAtHand.toLocaleString()}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-red-600">
                           {expenses.toLocaleString()}
