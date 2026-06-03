@@ -886,51 +886,30 @@ export default function EmployeeDashboard() {
                 </div>
               </div>
 
-              {/* Cash at Hand */}
-              <div className="mt-3 pt-3 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <div className="rounded-2xl p-4 flex items-center gap-4"
-                  style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
-                  <div className="shrink-0 flex items-center justify-center w-12 h-12 rounded-xl shadow-sm"
-                    style={{ background: cashAtHand >= 0 ? '#059669' : '#dc2626' }}>
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-500 leading-tight">Cash at Hand</p>
-                    <p className="text-xl font-black leading-tight mt-0.5"
-                      style={{ color: cashAtHand >= 0 ? '#059669' : '#dc2626' }}>
-                      {cashAtHand.toLocaleString()}
+              {/* Reconciliation status */}
+              {reconStatus && (
+                <div className="mt-3 pt-3 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <div className="px-4 py-3 rounded-xl text-center"
+                    style={{
+                      background: reconStatus === 'RECONCILED' ? 'rgba(16,185,129,.07)' : reconStatus === 'EXCESS' ? 'rgba(59,130,246,.07)' : 'rgba(220,38,38,.06)',
+                      border: `1px solid ${reconStatus === 'RECONCILED' ? 'rgba(16,185,129,.2)' : reconStatus === 'EXCESS' ? 'rgba(59,130,246,.2)' : 'rgba(220,38,38,.18)'}`,
+                    }}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${
+                      reconStatus === 'RECONCILED' ? 'text-emerald-600' : reconStatus === 'EXCESS' ? 'text-blue-600' : 'text-red-600'
+                    }`}>
+                      Reconciliation
                     </p>
-                    <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance status */}
-              <div className="mt-3 pt-3 font-sans" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <div className="px-4 py-3 rounded-xl text-center"
-                  style={{
-                    background: balanceStatus === 'balanced' ? 'rgba(16,185,129,.07)' : balanceStatus === 'excess' ? 'rgba(59,130,246,.07)' : 'rgba(220,38,38,.06)',
-                    border: `1px solid ${balanceStatus === 'balanced' ? 'rgba(16,185,129,.2)' : balanceStatus === 'excess' ? 'rgba(59,130,246,.2)' : 'rgba(220,38,38,.18)'}`,
-                  }}>
-                  <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${
-                    balanceStatus === 'balanced' ? 'text-emerald-600' : balanceStatus === 'excess' ? 'text-blue-600' : 'text-red-600'
-                  }`}>
-                    {balanceStatus === 'balanced' ? 'Balanced' : balanceStatus === 'excess' ? 'Excess' : 'Shortage'}
-                  </p>
-                  <p className={`text-lg font-bold ${
-                    balanceStatus === 'balanced' ? 'text-emerald-700' : balanceStatus === 'excess' ? 'text-blue-700' : 'text-red-700'
-                  }`}>
-                    {balanceStatus === 'balanced' ? 'All accounts match' : Math.abs(paymentDifference).toLocaleString()}
-                  </p>
-                  {!paymentMatch && (
+                    <p className={`text-lg font-bold ${
+                      reconStatus === 'RECONCILED' ? 'text-emerald-700' : reconStatus === 'EXCESS' ? 'text-blue-700' : 'text-red-700'
+                    }`}>
+                      {reconStatus === 'RECONCILED' ? '✓ Reconciled' : reconStatus === 'EXCESS' ? `+${Math.round(reconDiff).toLocaleString()}` : `−${Math.abs(Math.round(reconDiff)).toLocaleString()}`}
+                    </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {balanceStatus === 'excess' ? 'Payments exceed net sales' : 'Payments below net sales'}
+                      {reconStatus === 'RECONCILED' ? 'All amounts balance' : reconStatus === 'EXCESS' ? 'UGX over sales' : 'UGX short of sales'}
                     </p>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Recent Reports */}
