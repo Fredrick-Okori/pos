@@ -123,10 +123,10 @@ export default function LoginForm() {
           {/* Headline */}
           <div className="relative z-10">
             <p className="font-sans font-semibold tracking-widest text-xs uppercase mb-3" style={{ color: '#C9A84C' }}>
-              SEIV Point of Sale
+              SEIV
             </p>
             <h1 className="font-serif font-medium leading-tight mb-2 text-white" style={{ fontSize: 38, letterSpacing: '-.025em' }}>
-              Sales<br /><em className="font-light" style={{ color: 'rgba(255,255,255,.45)' }}>Ledger</em>
+              Sales<br /><em className="font-light" style={{ color: 'rgba(255,255,255,.45)' }}>Sub-Ledger</em>
             </h1>
             <div className="w-8 h-px my-5" style={{ background: 'rgba(255,255,255,.12)' }} />
             <p className="font-sans text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,.3)' }}>
