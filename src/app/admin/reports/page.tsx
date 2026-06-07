@@ -5,12 +5,15 @@ import { createClient } from '@/lib/supabase'
 import { DailyReport, Profile } from '@/types'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
+import EditReportModal from '@/components/EditReportModal'
 import { useOrganization } from '@/contexts/OrganizationContext'
+import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 
 export default function AdminReports() {
   const supabase = createClient()
+  const { user } = useAuth()
   const { selectedOrg } = useOrganization()
   const [loading, setLoading] = useState(true)
   const [reports, setReports] = useState<DailyReport[]>([])
@@ -21,6 +24,9 @@ export default function AdminReports() {
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   })
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const fetchEmployees = async () => {
     try {
@@ -70,6 +76,37 @@ export default function AdminReports() {
     } else if (filter === 'lastMonth') {
       const last = subMonths(today, 1)
       setDateRange({ start: format(startOfMonth(last), 'yyyy-MM-dd'), end: format(endOfMonth(last), 'yyyy-MM-dd') })
+    }
+  }
+
+  const openEditModal = (report: DailyReport) => {
+    setSelectedReport(report)
+    setEditModalOpen(true)
+  }
+
+  const saveReport = async (updatedData: Partial<DailyReport>) => {
+    if (!selectedReport || !user) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('daily_reports')
+        .update({
+          ...updatedData,
+          is_edited: true,
+          edited_by: user.id,
+          edited_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedReport.id)
+      if (error) throw error
+      toast.success('Report updated successfully!')
+      setEditModalOpen(false)
+      fetchReports()
+    } catch (error: any) {
+      console.error('Error updating report:', error)
+      toast.error(error.message || 'Failed to update report')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -409,12 +446,21 @@ export default function AdminReports() {
                           {diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-center">
-                          <button
-                            onClick={() => handleDelete(report.id, report.report_date)}
-                            className="text-xs text-red-400 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => openEditModal(report)}
+                              className="text-xs font-medium px-2 py-1 rounded transition-colors"
+                              style={{ color: '#0C2340', background: 'rgba(12,35,64,.06)', border: '1px solid rgba(12,35,64,.15)' }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(report.id, report.report_date)}
+                              className="text-xs text-red-400 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -424,6 +470,14 @@ export default function AdminReports() {
             </div>
           )}
         </div>
+        {editModalOpen && selectedReport && (
+          <EditReportModal
+            report={selectedReport}
+            onClose={() => setEditModalOpen(false)}
+            onSave={saveReport}
+            saving={saving}
+          />
+        )}
       </DashboardLayout>
     </ProtectedRoute>
   )
