@@ -83,6 +83,7 @@ export interface UnpaidBill {
   report_id: string
   customer_name: string
   amount: number
+  original_amount: number
   notes: string | null
   created_at: string
 }

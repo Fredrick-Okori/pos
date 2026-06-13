@@ -6,6 +6,7 @@ import { DailyReport, Profile } from '@/types'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import EditReportModal from '@/components/EditReportModal'
+import type { EditableExpense, EditableBill } from '@/components/EditReportModal'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -84,11 +85,11 @@ export default function AdminReports() {
     setEditModalOpen(true)
   }
 
-  const saveReport = async (updatedData: Partial<DailyReport>) => {
+  const saveReport = async (updatedData: Partial<DailyReport>, expenses: EditableExpense[], bills: EditableBill[]) => {
     if (!selectedReport || !user) return
     setSaving(true)
     try {
-      const { error } = await supabase
+      const { error: reportError } = await supabase
         .from('daily_reports')
         .update({
           ...updatedData,
@@ -98,7 +99,50 @@ export default function AdminReports() {
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedReport.id)
-      if (error) throw error
+      if (reportError) throw reportError
+
+      // Save expenses: delete all existing, reinsert
+      const { error: delExpError } = await supabase.from('expenses').delete().eq('report_id', selectedReport.id)
+      if (delExpError) throw delExpError
+      const validExpenses = expenses.filter(e => e.description && e.amount > 0)
+      if (validExpenses.length > 0) {
+        const { error: insExpError } = await supabase.from('expenses').insert(
+          validExpenses.map(e => ({
+            report_id: selectedReport.id,
+            description: e.description,
+            amount: e.amount,
+            paid_from: e.paid_from,
+          }))
+        )
+        if (insExpError) throw insExpError
+      }
+
+      // Save bills: update existing ones by id, insert new ones (no id)
+      const existingBillIds = (selectedReport.unpaid_bills || []).map(b => b.id)
+      const submittedIds = bills.filter(b => b.id).map(b => b.id as string)
+      const deletedIds = existingBillIds.filter(id => !submittedIds.includes(id))
+
+      if (deletedIds.length > 0) {
+        const { error: delBillError } = await supabase.from('unpaid_bills').delete().in('id', deletedIds)
+        if (delBillError) throw delBillError
+      }
+
+      for (const bill of bills) {
+        const billData = {
+          customer_name: bill.customer_name,
+          amount: bill.amount,
+          original_amount: bill.original_amount || bill.amount,
+          notes: bill.notes || null,
+        }
+        if (bill.id) {
+          const { error } = await supabase.from('unpaid_bills').update(billData).eq('id', bill.id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase.from('unpaid_bills').insert({ ...billData, report_id: selectedReport.id })
+          if (error) throw error
+        }
+      }
+
       toast.success('Report updated successfully!')
       setEditModalOpen(false)
       fetchReports()
