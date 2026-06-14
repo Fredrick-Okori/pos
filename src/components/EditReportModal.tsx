@@ -55,7 +55,7 @@ export default function EditReportModal({ report, onClose, onSave, saving }: Edi
       id: b.id,
       customer_name: b.customer_name,
       amount: Number(b.amount),
-      original_amount: Number((b as any).original_amount ?? b.amount),
+      original_amount: Number(b.original_amount ?? b.amount),
       notes: b.notes || '',
     })) || []
   )
