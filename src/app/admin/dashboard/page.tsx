@@ -11,7 +11,7 @@ import { useOrganization } from '@/contexts/OrganizationContext'
 import toast from 'react-hot-toast'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import Link from 'next/link'
-import EditReportModal from '@/components/EditReportModal'
+import EditReportModal, { type EditableExpense, type EditableBill } from '@/components/EditReportModal'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -137,14 +137,17 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    if (!selectedOrg) return
     fetchEmployees()
   }, [selectedOrg?.id])
 
   useEffect(() => {
+    if (!selectedOrg) return
     fetchReports()
   }, [selectedEmployee, dateRange, selectedOrg?.id])
 
   useEffect(() => {
+    if (!selectedOrg) return
     fetchUnpaidBalances()
   }, [selectedOrg?.id])
 
@@ -206,12 +209,13 @@ export default function AdminDashboard() {
   }
 
   // Save edited report
-  const saveReport = async (updatedData: Partial<DailyReport>) => {
+  const saveReport = async (updatedData: Partial<DailyReport>, expenses: EditableExpense[], bills: EditableBill[]) => {
     if (!selectedReport || !user) return
 
     setSaving(true)
     try {
-      const { error } = await supabase
+      // Update daily_reports row
+      const { error: reportError } = await supabase
         .from('daily_reports')
         .update({
           ...updatedData,
@@ -221,12 +225,75 @@ export default function AdminDashboard() {
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedReport.id)
+      if (reportError) throw reportError
 
-      if (error) throw error
+      // Save expenses: delete all existing, reinsert
+      const { error: delExpError } = await supabase.from('expenses').delete().eq('report_id', selectedReport.id)
+      if (delExpError) throw delExpError
+      const validExpenses = expenses.filter(e => e.description && e.amount > 0)
+      if (validExpenses.length > 0) {
+        const { error: insExpError } = await supabase.from('expenses').insert(
+          validExpenses.map(e => ({
+            report_id: selectedReport.id,
+            description: e.description,
+            amount: e.amount,
+            paid_from: e.paid_from,
+          }))
+        )
+        if (insExpError) throw insExpError
+      }
+
+      // Save bills: delete removed, update existing, insert new
+      const existingBillIds = (selectedReport.unpaid_bills || []).map(b => b.id)
+      const submittedIds = bills.filter(b => b.id).map(b => b.id as string)
+      const deletedIds = existingBillIds.filter(id => !submittedIds.includes(id))
+      if (deletedIds.length > 0) {
+        const { error: delBillError } = await supabase.from('unpaid_bills').delete().in('id', deletedIds)
+        if (delBillError) throw delBillError
+      }
+      for (const bill of bills) {
+        const billData = {
+          customer_name: bill.customer_name,
+          amount: bill.amount,
+          original_amount: bill.original_amount || bill.amount,
+          notes: bill.notes || null,
+        }
+        if (bill.id) {
+          const { error } = await supabase.from('unpaid_bills').update(billData).eq('id', bill.id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase.from('unpaid_bills').insert({ ...billData, report_id: selectedReport.id })
+          if (error) throw error
+        }
+      }
+
+      // Instantly update the matching row in the table (no loading flash)
+      const now = new Date().toISOString()
+      setReports(prev => prev.map(r => r.id !== selectedReport.id ? r : {
+        ...r,
+        ...updatedData,
+        is_edited: true,
+        expenses: validExpenses.map((e, idx) => ({
+          id: e.id || `tmp-${idx}`,
+          report_id: selectedReport.id,
+          description: e.description,
+          amount: e.amount,
+          paid_from: e.paid_from,
+          created_at: now,
+        })),
+        unpaid_bills: bills.map((b, idx) => ({
+          id: b.id || `tmp-${idx}`,
+          report_id: selectedReport.id,
+          customer_name: b.customer_name,
+          amount: b.amount,
+          original_amount: b.original_amount || b.amount,
+          notes: b.notes || null,
+          created_at: now,
+        })),
+      }))
 
       toast.success('Report updated successfully!')
       setEditModalOpen(false)
-      fetchReports()
     } catch (error: any) {
       console.error('Error updating report:', error)
       toast.error(error.message || 'Failed to update report')

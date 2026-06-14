@@ -64,7 +64,7 @@ export default function AdminUnpaidBills() {
   }
 
   useEffect(() => {
-    fetchUnpaidBills()
+    if (selectedOrg) fetchUnpaidBills()
   }, [selectedOrg?.id])
 
   const filteredBills = bills.filter(bill =>

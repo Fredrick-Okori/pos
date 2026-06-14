@@ -65,8 +65,8 @@ export default function AdminReports() {
     }
   }
 
-  useEffect(() => { fetchEmployees() }, [selectedOrg?.id])
-  useEffect(() => { fetchReports() }, [selectedEmployee, dateRange, selectedOrg?.id])
+  useEffect(() => { if (selectedOrg) fetchEmployees() }, [selectedOrg?.id])
+  useEffect(() => { if (selectedOrg) fetchReports() }, [selectedEmployee, dateRange, selectedOrg?.id])
 
   const setQuickFilter = (filter: string) => {
     const today = new Date()
