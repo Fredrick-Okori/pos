@@ -154,17 +154,60 @@ export default function AdminReports() {
     }
   }
 
-  const handleDelete = async (reportId: string, reportDate: string) => {
-    if (!confirm(`Delete report for ${format(new Date(reportDate), 'MMM dd, yyyy')}? This cannot be undone.`)) return
+  const executeDelete = async (reportId: string) => {
     try {
+      const { error: expError } = await supabase.from('expenses').delete().eq('report_id', reportId)
+      if (expError) throw expError
+      const { error: billError } = await supabase.from('unpaid_bills').delete().eq('report_id', reportId)
+      if (billError) throw billError
       const { error } = await supabase.from('daily_reports').delete().eq('id', reportId)
       if (error) throw error
-      toast.success('Report deleted')
+      toast.success('Report deleted successfully')
       fetchReports()
     } catch (err: any) {
       console.error('Error deleting report:', err)
       toast.error(err.message || 'Failed to delete report')
     }
+  }
+
+  const handleDelete = (reportId: string, reportDate: string) => {
+    const dateLabel = format(new Date(reportDate), 'MMM dd, yyyy')
+    toast.custom((t) => (
+      <div
+        className={`flex flex-col gap-3 p-4 rounded-xl shadow-xl transition-all ${t.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
+        style={{ background: '#0E1E35', border: '1px solid rgba(220,38,38,.4)', minWidth: 300, maxWidth: 360 }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5 flex items-center justify-center w-8 h-8 rounded-full" style={{ background: 'rgba(220,38,38,.15)' }}>
+            <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Delete Report?</p>
+            <p className="text-xs text-blue-200/70 mt-0.5">
+              {dateLabel} — this will permanently remove the report, expenses, and invoices. This cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 pl-11">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'rgba(255,255,255,.07)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,.1)' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { toast.dismiss(t.id); executeDelete(reportId) }}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'rgba(220,38,38,.85)', color: '#fff', border: '1px solid rgba(220,38,38,.6)' }}
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </div>
+    ), { duration: Infinity, position: 'top-center' })
   }
 
   const exportPDF = () => {

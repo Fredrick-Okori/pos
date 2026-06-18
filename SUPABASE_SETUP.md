@@ -116,6 +116,9 @@ CREATE POLICY "Superadmins can view all reports" ON public.daily_reports
 CREATE POLICY "Superadmins can update all reports" ON public.daily_reports
     FOR UPDATE USING (public.is_superadmin());
 
+CREATE POLICY "Superadmins can delete all reports" ON public.daily_reports
+    FOR DELETE USING (public.is_superadmin());
+
 -- Expenses policies
 CREATE POLICY "Users can manage own expenses" ON public.expenses
     FOR ALL USING (
@@ -125,6 +128,9 @@ CREATE POLICY "Users can manage own expenses" ON public.expenses
 CREATE POLICY "Superadmins can view all expenses" ON public.expenses
     FOR SELECT USING (public.is_superadmin());
 
+CREATE POLICY "Superadmins can delete all expenses" ON public.expenses
+    FOR DELETE USING (public.is_superadmin());
+
 -- Unpaid bills policies
 CREATE POLICY "Users can manage own unpaid bills" ON public.unpaid_bills
     FOR ALL USING (
@@ -133,6 +139,9 @@ CREATE POLICY "Users can manage own unpaid bills" ON public.unpaid_bills
 
 CREATE POLICY "Superadmins can view all unpaid bills" ON public.unpaid_bills
     FOR SELECT USING (public.is_superadmin());
+
+CREATE POLICY "Superadmins can delete all unpaid bills" ON public.unpaid_bills
+    FOR DELETE USING (public.is_superadmin());
 
 -- Function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()
