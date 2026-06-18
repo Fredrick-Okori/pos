@@ -117,10 +117,14 @@ export default function AdminReports() {
         if (insExpError) throw insExpError
       }
 
-      // Save bills: update existing ones by id, insert new ones (no id)
+      // Save bills: update existing ones by id, insert new ones (no id); never delete paid bills
       const existingBillIds = (selectedReport.unpaid_bills || []).map(b => b.id)
       const submittedIds = bills.filter(b => b.id).map(b => b.id as string)
-      const deletedIds = existingBillIds.filter(id => !submittedIds.includes(id))
+      const deletedIds = existingBillIds.filter(id => {
+        if (submittedIds.includes(id)) return false
+        const bill = selectedReport.unpaid_bills?.find(b => b.id === id)
+        return !(bill && Number(bill.amount) === 0)
+      })
 
       if (deletedIds.length > 0) {
         const { error: delBillError } = await supabase.from('unpaid_bills').delete().in('id', deletedIds)

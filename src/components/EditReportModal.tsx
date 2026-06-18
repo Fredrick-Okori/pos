@@ -276,50 +276,74 @@ export default function EditReportModal({ report, onClose, onSave, saving }: Edi
               </p>
             ) : (
               <div className="space-y-2">
-                {bills.map((bill, i) => (
-                  <div key={i} className="flex gap-2 items-end p-3 rounded-xl" style={{ background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.18)' }}>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-400 mb-1 block">Customer Name</label>
-                      <input
-                        type="text"
-                        value={bill.customer_name}
-                        onChange={e => updateBill(i, 'customer_name', e.target.value)}
-                        placeholder="Customer name"
-                        className="input-field"
-                      />
+                {bills.map((bill, i) => {
+                  const isCleared = bill.id && Number(bill.amount) === 0
+                  return (
+                    <div key={i} className="flex gap-2 items-end p-3 rounded-xl"
+                      style={isCleared
+                        ? { background: 'rgba(16,185,129,.04)', border: '1px solid rgba(16,185,129,.25)' }
+                        : { background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.18)' }}>
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">Customer Name</label>
+                        {isCleared ? (
+                          <div className="input-field bg-gray-50 text-gray-500 cursor-default">{bill.customer_name}</div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={bill.customer_name}
+                            onChange={e => updateBill(i, 'customer_name', e.target.value)}
+                            placeholder="Customer name"
+                            className="input-field"
+                          />
+                        )}
+                      </div>
+                      <div className="w-32">
+                        <label className="text-xs text-gray-400 mb-1 block">Amount (UGX)</label>
+                        {isCleared ? (
+                          <div className="input-field bg-gray-50 text-green-600 font-semibold cursor-default">0</div>
+                        ) : (
+                          <CurrencyInput
+                            value={bill.amount}
+                            onValueChange={v => {
+                              updateBill(i, 'amount', v)
+                              if (!bill.id) updateBill(i, 'original_amount', v)
+                            }}
+                            className="input-field"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">Notes</label>
+                        {isCleared ? (
+                          <div className="input-field bg-gray-50 text-gray-400 cursor-default">{bill.notes || '—'}</div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={bill.notes}
+                            onChange={e => updateBill(i, 'notes', e.target.value)}
+                            placeholder="Optional notes"
+                            className="input-field"
+                          />
+                        )}
+                      </div>
+                      {isCleared ? (
+                        <div className="flex items-center justify-center w-8 h-8 mb-0.5">
+                          <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 whitespace-nowrap">Cleared</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => removeBill(i)}
+                          className="p-2 rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors mb-0.5"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
-                    <div className="w-32">
-                      <label className="text-xs text-gray-400 mb-1 block">Amount (UGX)</label>
-                      <CurrencyInput
-                        value={bill.amount}
-                        onValueChange={v => {
-                          updateBill(i, 'amount', v)
-                          if (!bill.id) updateBill(i, 'original_amount', v)
-                        }}
-                        className="input-field"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-400 mb-1 block">Notes</label>
-                      <input
-                        type="text"
-                        value={bill.notes}
-                        onChange={e => updateBill(i, 'notes', e.target.value)}
-                        placeholder="Optional notes"
-                        className="input-field"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeBill(i)}
-                      className="p-2 rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors mb-0.5"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

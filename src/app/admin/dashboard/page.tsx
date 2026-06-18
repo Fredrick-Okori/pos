@@ -298,10 +298,14 @@ export default function AdminDashboard() {
         if (insExpError) throw insExpError
       }
 
-      // Save bills: delete removed, update existing, insert new
+      // Save bills: delete removed (but never delete paid bills), update existing, insert new
       const existingBillIds = (selectedReport.unpaid_bills || []).map(b => b.id)
       const submittedIds = bills.filter(b => b.id).map(b => b.id as string)
-      const deletedIds = existingBillIds.filter(id => !submittedIds.includes(id))
+      const deletedIds = existingBillIds.filter(id => {
+        if (submittedIds.includes(id)) return false
+        const bill = selectedReport.unpaid_bills?.find(b => b.id === id)
+        return !(bill && Number(bill.amount) === 0)
+      })
       if (deletedIds.length > 0) {
         const { error: delBillError } = await supabase.from('unpaid_bills').delete().in('id', deletedIds)
         if (delBillError) throw delBillError
@@ -569,30 +573,41 @@ export default function AdminDashboard() {
                         <th className="text-left pb-2 font-medium">Client</th>
                         <th className="text-center pb-2 font-medium">Bills</th>
                         <th className="text-right pb-2 font-medium">Amount Owed</th>
+                        <th className="text-center pb-2 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {unpaidGroups.slice(0, 8).map(group => (
-                        <tr key={group.name} className="hover:bg-amber-50/40 transition-colors">
-                          <td className="py-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-white font-bold text-xs">
-                                {group.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                      {unpaidGroups.slice(0, 10).map(group => {
+                        const isCleared = group.total === 0
+                        return (
+                          <tr key={group.name} className={`transition-colors ${isCleared ? 'hover:bg-green-50/40' : 'hover:bg-amber-50/40'}`}>
+                            <td className="py-2.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xs ${isCleared ? 'bg-gradient-to-br from-green-400 to-emerald-500' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
+                                  {group.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                                </div>
+                                <span className="font-medium text-gray-900">{group.name}</span>
                               </div>
-                              <span className="font-medium text-gray-900">{group.name}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 text-center text-gray-500">{group.count}</td>
-                          <td className="py-2.5 text-right font-bold font-mono text-amber-600">
-                            {group.total.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-2.5 text-center text-gray-500">{group.count}</td>
+                            <td className={`py-2.5 text-right font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
+                              {isCleared ? '0' : group.total.toLocaleString()}
+                            </td>
+                            <td className="py-2.5 text-center">
+                              {isCleared ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Cleared</span>
+                              ) : (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Owing</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
-                  {unpaidGroups.length > 8 && (
+                  {unpaidGroups.length > 10 && (
                     <p className="text-xs text-gray-400 text-center mt-3">
-                      +{unpaidGroups.length - 8} more clients —{' '}
+                      +{unpaidGroups.length - 10} more clients —{' '}
                       <Link href="/admin/unpaid-bills" className="text-amber-600 hover:underline">view all</Link>
                     </p>
                   )}

@@ -625,23 +625,31 @@ export default function UnpaidBalanceDetailPage() {
                     <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-gray-400">No transactions found for this period.</td></tr>
                   ) : [...filteredLedger]
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map(entry => entry.kind === 'bill' ? (
-                      <tr key={entry.id} className="hover:bg-gray-50/60">
-                        <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
-                          {format(new Date(entry.date), 'MMM dd, yyyy')}
-                        </td>
-                        <td className="px-5 py-3.5 text-sm text-gray-500">
-                          {entry.notes || <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
-                          {entry.original.toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-sm text-gray-300">—</td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bill</span>
-                        </td>
-                      </tr>
-                    ) : (
+                    .map(entry => entry.kind === 'bill' ? (() => {
+                      const billCleared = entry.remaining === 0
+                      return (
+                        <tr key={entry.id} className={billCleared ? 'hover:bg-green-50/40' : 'hover:bg-gray-50/60'}
+                          style={billCleared ? { background: 'rgba(240,253,244,.4)' } : {}}>
+                          <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
+                            {format(new Date(entry.date), 'MMM dd, yyyy')}
+                          </td>
+                          <td className="px-5 py-3.5 text-sm text-gray-500">
+                            {entry.notes || <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
+                            {entry.original.toLocaleString()}
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-sm text-gray-300">—</td>
+                          <td className="px-4 py-3.5 text-center">
+                            {billCleared ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Cleared</span>
+                            ) : (
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bill</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })() : (
                       <tr key={entry.id} className="hover:bg-green-50/40" style={{ background: 'rgba(240,253,244,.5)' }}>
                         <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
                           {format(new Date(entry.date), 'MMM dd, yyyy')}
