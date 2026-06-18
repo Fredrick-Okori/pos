@@ -281,9 +281,10 @@ export default function EmployeeDashboard() {
     Math.abs(reconDiff) < 1 ? 'RECONCILED' :
     reconDiff > 0 ? 'EXCESS' : 'SHORTAGE'
 
-  // Determine whether the form should be locked for this employee
-  // Disable form if a report exists for the selected date (regardless of lock status)
-  const isReportLocked = !!existingReport
+  // Form is only locked when a report exists AND is_locked is true.
+  // When admin unlocks, is_locked becomes false and the employee can edit.
+  const isReportLocked = !!(existingReport && existingReport.is_locked)
+  const isUnlockedForEdit = !!(existingReport && !existingReport.is_locked)
 
   // Calculate per-account expense totals
   const expensesByAccount = ACCOUNTS.reduce((acc, account) => {
@@ -296,8 +297,8 @@ export default function EmployeeDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
-    if (existingReport) {
-      toast.error('A report already exists for this date. Select a different date.')
+    if (existingReport && existingReport.is_locked) {
+      toast.error('This report is locked and cannot be edited.')
       return
     }
     const incompleteExpense = formData.expenses.find(e => !e.description || !(Number(e.amount) > 0))
@@ -312,36 +313,57 @@ export default function EmployeeDashboard() {
     }
     setSaving(true)
     try {
-      const { data, error } = await supabase
-        .from('daily_reports')
-        .insert({
-          user_id: user.id,
-          organization_id: selectedOrg?.id || profile?.organization_id || null,
-          report_date: formData.report_date,
-          total_sales: formData.total_sales,
-          airtel_money: formData.airtel_money,
-          mtn_money: formData.mtn_money,
-          visa_card: formData.visa_card,
-          cash: formData.cash,
-          complementaries: formData.complementaries,
-          discounts: formData.discounts,
-          usd_amount: formData.usd_amount,
-          exchange_rate: formData.exchange_rate,
-          bar_sales: formData.bar_sales,
-          kitchen_sales: formData.kitchen_sales,
-          shisha_sales: formData.shisha_sales,
-          notes: formData.notes || null,
-          recon_status: reconStatus,
-          recon_diff: Math.round(reconDiff),
-          is_locked: true,
-          locked_by: profile?.full_name ?? null,
-          locked_at: new Date().toISOString()
-        })
-        .select()
-        .single()
-      if (error) throw error
+      const reportFields = {
+        total_sales: formData.total_sales,
+        airtel_money: formData.airtel_money,
+        mtn_money: formData.mtn_money,
+        visa_card: formData.visa_card,
+        cash: formData.cash,
+        complementaries: formData.complementaries,
+        discounts: formData.discounts,
+        usd_amount: formData.usd_amount,
+        exchange_rate: formData.exchange_rate,
+        bar_sales: formData.bar_sales,
+        kitchen_sales: formData.kitchen_sales,
+        shisha_sales: formData.shisha_sales,
+        notes: formData.notes || null,
+        recon_status: reconStatus,
+        recon_diff: Math.round(reconDiff),
+        is_locked: true,
+        locked_by: profile?.full_name ?? null,
+        locked_at: new Date().toISOString(),
+      }
 
-      const reportId = data.id
+      let reportId: string
+
+      if (isUnlockedForEdit && existingReport) {
+        // UPDATE the unlocked report
+        const { error } = await supabase
+          .from('daily_reports')
+          .update({ ...reportFields, updated_at: new Date().toISOString() })
+          .eq('id', existingReport.id)
+        if (error) throw error
+        reportId = existingReport.id
+
+        // Replace expenses and bills
+        await supabase.from('expenses').delete().eq('report_id', reportId)
+        await supabase.from('unpaid_bills').delete().eq('report_id', reportId)
+      } else {
+        // INSERT new report
+        const { data, error } = await supabase
+          .from('daily_reports')
+          .insert({
+            user_id: user.id,
+            organization_id: selectedOrg?.id || profile?.organization_id || null,
+            report_date: formData.report_date,
+            ...reportFields,
+          })
+          .select()
+          .single()
+        if (error) throw error
+        reportId = data.id
+      }
+
       const expenses = formData.expenses
         .filter(exp => exp.description && exp.amount > 0)
         .map(exp => ({ report_id: reportId, description: exp.description, amount: exp.amount, paid_from: exp.paid_from }))
@@ -356,6 +378,7 @@ export default function EmployeeDashboard() {
         const { error } = await supabase.from('unpaid_bills').insert(bills)
         if (error) throw error
       }
+
       fetch('/api/email/daily-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -375,8 +398,8 @@ export default function EmployeeDashboard() {
           complementaries: formData.complementaries,
           discounts: formData.discounts,
           expenses: formData.expenses
-            .filter(e => e.description && e.amount > 0)
-            .map(e => ({ description: e.description, amount: e.amount, paidFrom: e.paid_from })),
+            .filter(ex => ex.description && ex.amount > 0)
+            .map(ex => ({ description: ex.description, amount: ex.amount, paidFrom: ex.paid_from })),
           unpaidBills: formData.unpaid_bills
             .filter(b => b.customer_name && b.amount > 0)
             .map(b => ({ customerName: b.customer_name, amount: b.amount, notes: b.notes || undefined })),
@@ -386,7 +409,7 @@ export default function EmployeeDashboard() {
         }),
       }).catch(() => {})
 
-      toast.success('Report saved and locked!')
+      toast.success(isUnlockedForEdit ? 'Report updated and locked!' : 'Report saved and locked!')
       fetchReports()
       fetchReportForDate(selectedDate)
     } catch (error: any) {
@@ -461,6 +484,20 @@ export default function EmployeeDashboard() {
                     <p className="text-xs mt-0.5" style={{ color: 'rgba(232,201,122,.6)' }}>Select a different date above to create a new report for another day.</p>
                   </div>
                   <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full" style={{ background: 'rgba(201,168,76,.15)', color: '#C9A84C', letterSpacing: '.08em' }}>LOCKED</span>
+                </div>
+              )}
+
+              {/* Unlocked-for-edit banner */}
+              {isUnlockedForEdit && (
+                <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'rgba(59,130,246,.07)', border: '1px solid rgba(59,130,246,.3)' }}>
+                  <svg className="w-5 h-5 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-blue-300">Report unlocked for editing</p>
+                    <p className="text-xs mt-0.5 text-blue-400/70">Your admin has unlocked this report. Make your changes and save to resubmit.</p>
+                  </div>
+                  <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full" style={{ background: 'rgba(59,130,246,.15)', color: '#60a5fa', letterSpacing: '.08em' }}>EDIT MODE</span>
                 </div>
               )}
 
@@ -780,10 +817,10 @@ export default function EmployeeDashboard() {
                 />
               </div>
 
-              {!isReportLocked && (
+              {(!isReportLocked) && (
                 <button type="submit" disabled={saving}
                   className="w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ background: '#0C2340' }}>
+                  style={{ background: isUnlockedForEdit ? '#1e40af' : '#0C2340' }}>
                   {saving ? (
                     <>
                       <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -791,6 +828,13 @@ export default function EmployeeDashboard() {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                       Saving…
+                    </>
+                  ) : isUnlockedForEdit ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Update &amp; Resubmit Report
                     </>
                   ) : (
                     <>
