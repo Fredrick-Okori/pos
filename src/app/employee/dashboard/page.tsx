@@ -131,21 +131,27 @@ export default function EmployeeDashboard() {
   const fetchCustomerNames = async () => {
     try {
       const orgId = selectedOrg?.id || profile?.organization_id || null
+      if (!orgId) return
 
+      // Clients table is the authoritative source (requires supabase_clients_select_policy.sql to be run).
+      // unpaid_bills is queried as a fallback for names that predate the clients table.
       let billQuery = supabase
         .from('unpaid_bills')
         .select('customer_name, daily_reports!inner(organization_id)')
-      if (orgId) billQuery = billQuery.eq('daily_reports.organization_id', orgId)
+        .eq('daily_reports.organization_id', orgId)
 
-      let clientQuery = supabase.from('clients').select('name')
-      if (orgId) clientQuery = clientQuery.eq('organization_id', orgId)
+      let clientQuery = supabase
+        .from('clients')
+        .select('name')
+        .eq('organization_id', orgId)
 
       const [{ data: billData }, { data: clientData }] = await Promise.all([billQuery, clientQuery])
 
       const seen = new Set<string>()
+      // Clients first (more curated), then bill names as fallback
       const allNames = [
-        ...((billData as any[]) || []).map((r: any) => r.customer_name as string),
         ...((clientData as any[]) || []).map((r: any) => r.name as string),
+        ...((billData as any[]) || []).map((r: any) => r.customer_name as string),
       ]
       const unique = allNames.filter(n => {
         if (!n || seen.has(n.toLowerCase())) return false
@@ -160,8 +166,11 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     fetchReports()
-    fetchCustomerNames()
   }, [user?.id])
+
+  useEffect(() => {
+    fetchCustomerNames()
+  }, [user?.id, selectedOrg?.id, profile?.organization_id])
 
   useEffect(() => {
     fetchReportForDate(selectedDate)

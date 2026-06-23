@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
+import { AccountIcon } from '@/lib/accounts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 
 interface UnpaidBillWithDetails {
   id: string
@@ -22,9 +24,29 @@ interface UnpaidBillWithDetails {
   }
 }
 
+interface PaymentRecord {
+  id: string
+  customer_name: string
+  amount: number
+  payment_mode: string | null
+  notes: string | null
+  paid_at: string
+  organization_id: string | null
+}
+
+type AccountPeriod = 'all' | 'this_month' | 'last_month'
+
+const ACCOUNT_MODES: { key: string; label: string }[] = [
+  { key: 'cash', label: 'Cash' },
+  { key: 'airtel_money', label: 'Airtel Money' },
+  { key: 'mtn_money', label: 'MTN Money' },
+  { key: 'visa_card', label: 'Visa Card' },
+]
+
 function nameToSlug(name: string) {
   return name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
+
 
 export default function AdminUnpaidBills() {
   const supabase = createClient()
@@ -34,6 +56,10 @@ export default function AdminUnpaidBills() {
   const [loading, setLoading] = useState(true)
   const [bills, setBills] = useState<UnpaidBillWithDetails[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [loadingPayments, setLoadingPayments] = useState(true)
+  const [accountPeriod, setAccountPeriod] = useState<AccountPeriod>('all')
 
   const fetchUnpaidBills = async () => {
     setLoading(true)
@@ -63,9 +89,66 @@ export default function AdminUnpaidBills() {
     }
   }
 
+  const fetchPayments = async () => {
+    setLoadingPayments(true)
+    try {
+      let query = supabase
+        .from('bill_payments')
+        .select('*')
+        .order('paid_at', { ascending: false })
+
+      if (selectedOrg) query = query.eq('organization_id', selectedOrg.id)
+
+      const { data, error } = await query
+      if (error) throw error
+      setPayments(data || [])
+    } catch (error) {
+      console.error('Error fetching payments:', error)
+    } finally {
+      setLoadingPayments(false)
+    }
+  }
+
   useEffect(() => {
-    if (selectedOrg) fetchUnpaidBills()
+    if (!selectedOrg) return
+    fetchUnpaidBills()
+    fetchPayments()
   }, [selectedOrg?.id])
+
+  // Only count payments for customers who still have invoice records in the system.
+  // If a report is deleted (removing its unpaid_bills), payments for customers whose
+  // only bills came from that report are excluded from the account totals.
+  const activeCustomerNames = new Set(bills.map(b => b.customer_name.toLowerCase()))
+
+  // Filter payments by active customers + period
+  const filteredPayments = payments.filter(p => {
+    if (!activeCustomerNames.has((p.customer_name || '').toLowerCase())) return false
+    if (accountPeriod === 'all') return true
+    const today = new Date()
+    let from: Date, to: Date
+    if (accountPeriod === 'this_month') {
+      from = startOfMonth(today)
+      to = endOfMonth(today)
+    } else {
+      const last = subMonths(today, 1)
+      from = startOfMonth(last)
+      to = endOfMonth(last)
+    }
+    const d = new Date(p.paid_at)
+    return d >= from && d <= to
+  })
+
+  // Aggregate by payment mode
+  const accountTotals = ACCOUNT_MODES.map(mode => {
+    const modePayments = filteredPayments.filter(p => p.payment_mode === mode.key)
+    return {
+      ...mode,
+      total: modePayments.reduce((s, p) => s + Number(p.amount), 0),
+      count: modePayments.length,
+    }
+  })
+
+  const totalAllAccounts = accountTotals.reduce((s, a) => s + a.total, 0)
 
   const filteredBills = bills.filter(bill =>
     bill.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,6 +177,12 @@ export default function AdminUnpaidBills() {
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  const periodLabel: Record<AccountPeriod, string> = {
+    all: 'All Time',
+    this_month: format(new Date(), 'MMMM yyyy'),
+    last_month: format(subMonths(new Date(), 1), 'MMMM yyyy'),
+  }
 
   return (
     <ProtectedRoute allowedRoles={['superadmin']}>
@@ -125,6 +214,83 @@ export default function AdminUnpaidBills() {
           </div>
         </div>
 
+        {/* Accounts Dashboard */}
+        <div className="card mb-8">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Payment Collections by Account</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Total collected via each payment channel · {periodLabel[accountPeriod]}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {(['all', 'this_month', 'last_month'] as AccountPeriod[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setAccountPeriod(p)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  style={accountPeriod === p
+                    ? { background: '#0C2340', color: '#fff' }
+                    : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                  }
+                >
+                  {p === 'all' ? 'All Time' : p === 'this_month' ? 'This Month' : 'Last Month'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingPayments ? (
+            <div className="flex items-center gap-3 py-4 text-gray-400">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600" />
+              <span className="text-sm">Loading payments...</span>
+            </div>
+          ) : (
+            <>
+              {/* Total collected banner */}
+              <div className="flex items-center justify-between px-5 py-4 rounded-2xl mb-5"
+                style={{ background: 'linear-gradient(135deg,#0C2340,#1E4A7A)', color: '#fff' }}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest opacity-60 mb-1">Total Collected · {periodLabel[accountPeriod]}</p>
+                  <p className="text-3xl font-bold font-mono">{totalAllAccounts.toLocaleString()}</p>
+                  <p className="text-xs opacity-50 mt-0.5">UGX · {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}</p>
+                </div>
+                <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+
+              {/* Account cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {accountTotals.map(account => (
+                  <div
+                    key={account.key}
+                    className="rounded-2xl p-5 flex items-center gap-4"
+                    style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}
+                  >
+                    <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm">
+                      <AccountIcon type={account.key as any} size={44} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
+                      <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
+                        {account.total.toLocaleString()}
+                      </p>
+                      <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                      {account.count > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {account.count} payment{account.count !== 1 ? 's' : ''}
+                          {totalAllAccounts > 0 && ` · ${Math.round((account.total / totalAllAccounts) * 100)}%`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Search */}
         <div className="card mb-6">
           <div className="relative">
@@ -141,7 +307,7 @@ export default function AdminUnpaidBills() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Client table */}
         {loading ? (
           <div className="card text-center py-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
