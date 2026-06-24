@@ -139,12 +139,13 @@ export default function UnpaidBalanceDetailPage() {
       }
 
       // Fetch payment history for this customer
+      // Include rows belonging to this org OR rows with no org set (legacy records before org_id was required)
       let payQuery = supabase
         .from('bill_payments')
         .select('*')
         .ilike('customer_name', name)
         .order('paid_at', { ascending: false })
-      if (orgId) payQuery = payQuery.eq('organization_id', orgId)
+      if (orgId) payQuery = payQuery.or(`organization_id.eq.${orgId},organization_id.is.null`)
       const { data: payData } = await payQuery
       setPayments(payData || [])
     } catch (err) {
