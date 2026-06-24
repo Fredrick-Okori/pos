@@ -105,7 +105,7 @@ export interface ReportFormData {
   shisha_sales: number
   notes: string
   expenses: { description: string; amount: number; paid_from: AccountType }[]
-  unpaid_bills: { customer_name: string; amount: number; notes: string }[]
+  unpaid_bills: { id?: string; customer_name: string; amount: number; notes: string }[]
 }
 
 export interface Client {

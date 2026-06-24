@@ -34,7 +34,7 @@ interface PaymentRecord {
   organization_id: string | null
 }
 
-type AccountPeriod = 'all' | 'this_month' | 'last_month'
+type AccountPeriod = 'all' | 'this_month' | 'last_month' | 'custom'
 
 const ACCOUNT_MODES: { key: string; label: string }[] = [
   { key: 'cash', label: 'Cash' },
@@ -60,6 +60,8 @@ export default function AdminUnpaidBills() {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loadingPayments, setLoadingPayments] = useState(true)
   const [accountPeriod, setAccountPeriod] = useState<AccountPeriod>('all')
+  const [accountCustomFrom, setAccountCustomFrom] = useState('')
+  const [accountCustomTo, setAccountCustomTo] = useState('')
 
   const fetchUnpaidBills = async () => {
     setLoading(true)
@@ -129,10 +131,17 @@ export default function AdminUnpaidBills() {
     if (accountPeriod === 'this_month') {
       from = startOfMonth(today)
       to = endOfMonth(today)
-    } else {
+    } else if (accountPeriod === 'last_month') {
       const last = subMonths(today, 1)
       from = startOfMonth(last)
       to = endOfMonth(last)
+    } else {
+      // custom range
+      if (!accountCustomFrom && !accountCustomTo) return true
+      const d = new Date(p.paid_at)
+      if (accountCustomFrom && d < new Date(accountCustomFrom)) return false
+      if (accountCustomTo && d > new Date(accountCustomTo)) return false
+      return true
     }
     const d = new Date(p.paid_at)
     return d >= from && d <= to
@@ -178,10 +187,20 @@ export default function AdminUnpaidBills() {
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
+  const customRangeLabel =
+    accountCustomFrom && accountCustomTo
+      ? `${accountCustomFrom} – ${accountCustomTo}`
+      : accountCustomFrom
+      ? `From ${accountCustomFrom}`
+      : accountCustomTo
+      ? `Until ${accountCustomTo}`
+      : 'Custom Range'
+
   const periodLabel: Record<AccountPeriod, string> = {
     all: 'All Time',
     this_month: format(new Date(), 'MMMM yyyy'),
     last_month: format(subMonths(new Date(), 1), 'MMMM yyyy'),
+    custom: customRangeLabel,
   }
 
   return (
@@ -216,15 +235,15 @@ export default function AdminUnpaidBills() {
 
         {/* Accounts Dashboard */}
         <div className="card mb-8">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
             <div>
               <h2 className="text-base font-semibold text-gray-900">Payment Collections by Account</h2>
               <p className="text-xs text-gray-400 mt-0.5">
                 Total collected via each payment channel · {periodLabel[accountPeriod]}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {(['all', 'this_month', 'last_month'] as AccountPeriod[]).map(p => (
+            <div className="flex flex-wrap items-center gap-2">
+              {(['all', 'this_month', 'last_month', 'custom'] as AccountPeriod[]).map(p => (
                 <button
                   key={p}
                   onClick={() => setAccountPeriod(p)}
@@ -234,11 +253,46 @@ export default function AdminUnpaidBills() {
                     : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
                   }
                 >
-                  {p === 'all' ? 'All Time' : p === 'this_month' ? 'This Month' : 'Last Month'}
+                  {p === 'all' ? 'All Time' : p === 'this_month' ? 'This Month' : p === 'last_month' ? 'Last Month' : 'Custom'}
                 </button>
               ))}
             </div>
           </div>
+
+          {accountPeriod === 'custom' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5 p-3 rounded-xl" style={{ background: 'rgba(12,35,64,.04)', border: '1px solid rgba(12,35,64,.1)' }}>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">From</label>
+                <input
+                  type="date"
+                  value={accountCustomFrom}
+                  max={accountCustomTo || undefined}
+                  onChange={e => setAccountCustomFrom(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">To</label>
+                <input
+                  type="date"
+                  value={accountCustomTo}
+                  min={accountCustomFrom || undefined}
+                  onChange={e => setAccountCustomTo(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              {(accountCustomFrom || accountCustomTo) && (
+                <button
+                  onClick={() => { setAccountCustomFrom(''); setAccountCustomTo('') }}
+                  className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
           {loadingPayments ? (
             <div className="flex items-center gap-3 py-4 text-gray-400">

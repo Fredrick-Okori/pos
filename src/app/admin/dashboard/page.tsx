@@ -162,7 +162,7 @@ export default function AdminDashboard() {
     cash: acc.cash + Number(report.cash),
     cashAtHand: acc.cashAtHand + Number(report.cash_at_hand),
     expenses: acc.expenses + (report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0),
-    unpaidBills: acc.unpaidBills + (report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0)
+    unpaidBills: acc.unpaidBills + (report.unpaid_bills?.reduce((sum, b) => sum + Number(b.original_amount || b.amount), 0) || 0)
   }), {
     totalSales: 0,
     airtelMoney: 0,
@@ -311,17 +311,18 @@ export default function AdminDashboard() {
         if (delBillError) throw delBillError
       }
       for (const bill of bills) {
-        const billData = {
-          customer_name: bill.customer_name,
-          amount: bill.amount,
-          original_amount: bill.original_amount || bill.amount,
-          notes: bill.notes || null,
-        }
         if (bill.id) {
-          const { error } = await supabase.from('unpaid_bills').update(billData).eq('id', bill.id)
+          // Existing bill: never touch `amount` — it is managed exclusively by the Invoices tab payment flow
+          const { error } = await supabase
+            .from('unpaid_bills')
+            .update({ customer_name: bill.customer_name, original_amount: bill.amount, notes: bill.notes || null })
+            .eq('id', bill.id)
           if (error) throw error
         } else {
-          const { error } = await supabase.from('unpaid_bills').insert({ ...billData, report_id: selectedReport.id })
+          // New bill added in this edit session
+          const { error } = await supabase
+            .from('unpaid_bills')
+            .insert({ report_id: selectedReport.id, customer_name: bill.customer_name, amount: bill.amount, original_amount: bill.amount, notes: bill.notes || null })
           if (error) throw error
         }
       }
@@ -653,7 +654,7 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-gray-50">
                   {reports.map(report => {
                     const expenses = report.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
-                    const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.amount), 0) || 0
+                    const unpaid = report.unpaid_bills?.reduce((sum, b) => sum + Number(b.original_amount || b.amount), 0) || 0
                     return (
                       <tr key={report.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-5 py-3.5 whitespace-nowrap">

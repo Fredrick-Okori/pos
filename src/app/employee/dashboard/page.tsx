@@ -100,7 +100,7 @@ export default function EmployeeDashboard() {
           shisha_sales: data.shisha_sales ?? 0,
           notes: data.notes || '',
           expenses: data.expenses?.map((e: any) => ({ description: e.description, amount: e.amount, paid_from: e.paid_from || 'cash' })) || [],
-          unpaid_bills: data.unpaid_bills?.map((b: any) => ({ customer_name: b.customer_name, amount: b.amount, notes: b.notes || '' })) || []
+          unpaid_bills: data.unpaid_bills?.map((b: any) => ({ id: b.id, customer_name: b.customer_name, amount: Number(b.original_amount) || Number(b.amount), notes: b.notes || '' })) || []
         })
       } else {
         setExistingReport(null)
@@ -276,11 +276,8 @@ export default function EmployeeDashboard() {
   const netSales = Number(formData.total_sales) - totalDeductions
   const paymentDifference = totalPayments - netSales
   const paymentMatch = Math.abs(paymentDifference) < 0.01
-  const balanceStatus = paymentMatch ? 'balanced' : paymentDifference > 0 ? 'excess' : 'shortage'
-  const cashAtHand = Number(formData.total_sales) - totalExpenses
 
   // Reconciliation: compares total collected (all payment methods + bills + expenses + deductions) against total_sales
-  // Uses formData.cash (the cash received into the till), not the computed cashAtHand
   const totalCash = formData.airtel_money + formData.mtn_money + formData.visa_card + formData.cash + (formData.usd_amount * formData.exchange_rate)
   const totalBills = formData.unpaid_bills.reduce((s, b) => s + Number(b.amount), 0)
   const reconCollected = totalCash + totalBills + totalExpenses + totalDeductions
@@ -354,9 +351,9 @@ export default function EmployeeDashboard() {
         if (error) throw error
         reportId = existingReport.id
 
-        // Replace expenses and bills
+        // Replace expenses (fully managed by the report form)
         await supabase.from('expenses').delete().eq('report_id', reportId)
-        await supabase.from('unpaid_bills').delete().eq('report_id', reportId)
+        // Do NOT delete unpaid_bills — payment adjustments are managed exclusively by the Invoices tab
       } else {
         // INSERT new report
         const { data, error } = await supabase
@@ -381,7 +378,7 @@ export default function EmployeeDashboard() {
         if (error) throw error
       }
       const bills = formData.unpaid_bills
-        .filter(bill => bill.customer_name && bill.amount > 0)
+        .filter(bill => bill.customer_name && bill.amount > 0 && !bill.id)  // only insert new bills; existing ones are managed by the Invoices tab
         .map(bill => ({ report_id: reportId, customer_name: bill.customer_name, amount: bill.amount, original_amount: bill.amount, notes: bill.notes || null }))
       if (bills.length > 0) {
         const { error } = await supabase.from('unpaid_bills').insert(bills)
@@ -723,19 +720,36 @@ export default function EmployeeDashboard() {
                 ) : (
                   <div className="space-y-2">
                     {formData.unpaid_bills.map((bill, index) => {
+                      const isExisting = !!bill.id
+
+                      if (isExisting) {
+                        // Saved bills are read-only — changes go through the Invoices tab
+                        return (
+                          <div key={index} className="rounded-xl px-4 py-3 flex items-center gap-3"
+                            style={{ background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.15)' }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 text-sm truncate">{bill.customer_name}</p>
+                              {bill.notes && <p className="text-xs text-gray-400 mt-0.5 truncate">{bill.notes}</p>}
+                            </div>
+                            <span className="font-bold font-mono text-amber-600 text-sm shrink-0">{Number(bill.amount).toLocaleString()} UGX</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-500 border border-amber-200 shrink-0">Recorded</span>
+                          </div>
+                        )
+                      }
+
+                      // New bills (not yet saved) are fully editable
                       const query = bill.customer_name.toLowerCase()
                       const suggestions = query
                         ? customerNames.filter(n => n.toLowerCase().includes(query) && n.toLowerCase() !== query)
                         : customerNames
                       const isOpen = openAcIndex === index && !isReportLocked && suggestions.length > 0
-
                       const nameTyped = bill.customer_name.trim()
                       const nameExists = customerNames.some(n => n.toLowerCase() === nameTyped.toLowerCase())
                       const showCreateBtn = !isReportLocked && nameTyped.length > 0 && !nameExists
 
                       return (
                         <div key={index} className="rounded-xl px-4 py-3"
-                          style={{ background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.15)' }}>
+                          style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.3)' }}>
                           <div className="flex gap-3 items-start">
                             <div className="flex-1 relative">
                               <input

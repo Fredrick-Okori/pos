@@ -6,21 +6,23 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { AccountIcon } from '@/lib/accounts'
 import toast from 'react-hot-toast'
-import { format } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import CurrencyInput from '@/components/CurrencyInput'
 
 type PaymentMode = 'cash' | 'airtel_money' | 'mtn_money' | 'visa_card' | 'stanbic'
 type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
+type AccountPeriod = 'all' | 'this_month' | 'last_month' | 'custom'
 
-const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
-  cash: 'Cash',
-  airtel_money: 'Airtel Money',
-  mtn_money: 'MTN Money',
-  visa_card: 'Visa Card',
-  stanbic: 'Stanbic',
-}
+const ACCOUNT_MODES: { key: string; label: string }[] = [
+  { key: 'cash', label: 'Cash' },
+  { key: 'airtel_money', label: 'Airtel Money' },
+  { key: 'mtn_money', label: 'MTN Money' },
+  { key: 'visa_card', label: 'Visa Card' },
+]
+
 
 interface UnpaidBillRow {
   id: string
@@ -65,6 +67,12 @@ export default function EmployeeUnpaidBalancePage() {
   const [customTo, setCustomTo] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
   const [payment, setPayment] = useState<PaymentState | null>(null)
+
+  const [payments, setPayments] = useState<{ amount: number; payment_mode: string | null; paid_at: string; customer_name: string }[]>([])
+  const [loadingPayments, setLoadingPayments] = useState(true)
+  const [accountPeriod, setAccountPeriod] = useState<AccountPeriod>('all')
+  const [accountCustomFrom, setAccountCustomFrom] = useState('')
+  const [accountCustomTo, setAccountCustomTo] = useState('')
 
   const isInDateRange = (reportDate: string, filter: DateFilter): boolean => {
     if (filter === 'all') return true
@@ -154,16 +162,77 @@ export default function EmployeeUnpaidBalancePage() {
     }
   }
 
+  const fetchPayments = async () => {
+    setLoadingPayments(true)
+    try {
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      if (!orgId) return
+      let q = supabase.from('bill_payments').select('amount,payment_mode,paid_at,customer_name').eq('organization_id', orgId)
+      const { data } = await q
+      setPayments(data || [])
+    } catch {
+      // non-critical
+    } finally {
+      setLoadingPayments(false)
+    }
+  }
+
   const clientSlug = (entry: { id: string; phone: string | null }): string =>
     entry.phone ? entry.phone.replace(/[^0-9]/g, '') : entry.id
 
   useEffect(() => {
     fetchBills()
     fetchClientsMap()
+    fetchPayments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrg?.id, profile?.organization_id])
 
   const uniqueCustomers = Array.from(new Set(bills.map(b => b.customer_name))).sort()
+
+  // Account totals — only count payments for customers who still have bill records
+  const activeCustomerNames = new Set(bills.map(b => b.customer_name.toLowerCase()))
+
+  const customRangeLabel =
+    accountCustomFrom && accountCustomTo
+      ? `${accountCustomFrom} – ${accountCustomTo}`
+      : accountCustomFrom
+      ? `From ${accountCustomFrom}`
+      : accountCustomTo
+      ? `Until ${accountCustomTo}`
+      : 'Custom Range'
+
+  const periodLabel: Record<AccountPeriod, string> = {
+    all: 'All Time',
+    this_month: format(new Date(), 'MMMM yyyy'),
+    last_month: format(subMonths(new Date(), 1), 'MMMM yyyy'),
+    custom: customRangeLabel,
+  }
+
+  const filteredPayments = payments.filter(p => {
+    if (!activeCustomerNames.has((p.customer_name || '').toLowerCase())) return false
+    if (accountPeriod === 'all') return true
+    const today = new Date()
+    if (accountPeriod === 'this_month') {
+      const d = new Date(p.paid_at)
+      return d >= startOfMonth(today) && d <= endOfMonth(today)
+    }
+    if (accountPeriod === 'last_month') {
+      const last = subMonths(today, 1)
+      const d = new Date(p.paid_at)
+      return d >= startOfMonth(last) && d <= endOfMonth(last)
+    }
+    // custom range
+    if (!accountCustomFrom && !accountCustomTo) return true
+    const d = new Date(p.paid_at)
+    if (accountCustomFrom && d < new Date(accountCustomFrom)) return false
+    if (accountCustomTo && d > new Date(accountCustomTo)) return false
+    return true
+  })
+  const accountTotals = ACCOUNT_MODES.map(mode => {
+    const modePayments = filteredPayments.filter(p => p.payment_mode === mode.key)
+    return { ...mode, total: modePayments.reduce((s, p) => s + Number(p.amount), 0), count: modePayments.length }
+  })
+  const totalAllAccounts = accountTotals.reduce((s, a) => s + a.total, 0)
 
   const filtered = bills.filter(b => {
     const matchesSearch =
@@ -413,6 +482,109 @@ export default function EmployeeUnpaidBalancePage() {
             <p className="text-3xl font-bold font-mono" style={{ color: '#2563eb' }}>{totalCollected.toLocaleString()}</p>
             <p className="text-xs mt-1" style={{ color: '#2563eb', opacity: 0.6 }}>UGX paid by clients</p>
           </div>
+        </div>
+
+        {/* Payment Collections by Account */}
+        <div className="card mb-8">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Payment Collections by Account</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Total collected via each payment channel · {periodLabel[accountPeriod]}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(['all', 'this_month', 'last_month', 'custom'] as AccountPeriod[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setAccountPeriod(p)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  style={accountPeriod === p
+                    ? { background: '#0C2340', color: '#fff' }
+                    : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                  }
+                >
+                  {p === 'all' ? 'All Time' : p === 'this_month' ? 'This Month' : p === 'last_month' ? 'Last Month' : 'Custom'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {accountPeriod === 'custom' && (
+            <div className="flex flex-wrap items-center gap-3 mb-5 p-3 rounded-xl" style={{ background: 'rgba(12,35,64,.04)', border: '1px solid rgba(12,35,64,.1)' }}>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">From</label>
+                <input
+                  type="date"
+                  value={accountCustomFrom}
+                  max={accountCustomTo || undefined}
+                  onChange={e => setAccountCustomFrom(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">To</label>
+                <input
+                  type="date"
+                  value={accountCustomTo}
+                  min={accountCustomFrom || undefined}
+                  onChange={e => setAccountCustomTo(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              {(accountCustomFrom || accountCustomTo) && (
+                <button
+                  onClick={() => { setAccountCustomFrom(''); setAccountCustomTo('') }}
+                  className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {loadingPayments ? (
+            <div className="flex items-center gap-3 py-4 text-gray-400">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600" />
+              <span className="text-sm">Loading payments...</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-5 py-4 rounded-2xl mb-5"
+                style={{ background: 'linear-gradient(135deg,#0C2340,#1E4A7A)', color: '#fff' }}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest opacity-60 mb-1">Total Collected · {periodLabel[accountPeriod]}</p>
+                  <p className="text-3xl font-bold font-mono">{totalAllAccounts.toLocaleString()}</p>
+                  <p className="text-xs opacity-50 mt-0.5">UGX · {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}</p>
+                </div>
+                <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {accountTotals.map(account => (
+                  <div key={account.key} className="rounded-2xl p-5 flex items-center gap-4"
+                    style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                    <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm">
+                      <AccountIcon type={account.key as any} size={44} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
+                      <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">{account.total.toLocaleString()}</p>
+                      <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                      {account.count > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {account.count} payment{account.count !== 1 ? 's' : ''}
+                          {totalAllAccounts > 0 && ` · ${Math.round((account.total / totalAllAccounts) * 100)}%`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Search + Filters */}

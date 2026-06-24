@@ -132,17 +132,18 @@ export default function AdminReports() {
       }
 
       for (const bill of bills) {
-        const billData = {
-          customer_name: bill.customer_name,
-          amount: bill.amount,
-          original_amount: bill.original_amount || bill.amount,
-          notes: bill.notes || null,
-        }
         if (bill.id) {
-          const { error } = await supabase.from('unpaid_bills').update(billData).eq('id', bill.id)
+          // Existing bill: never touch `amount` — it is managed exclusively by the Invoices tab payment flow
+          const { error } = await supabase
+            .from('unpaid_bills')
+            .update({ customer_name: bill.customer_name, original_amount: bill.amount, notes: bill.notes || null })
+            .eq('id', bill.id)
           if (error) throw error
         } else {
-          const { error } = await supabase.from('unpaid_bills').insert({ ...billData, report_id: selectedReport.id })
+          // New bill added in this edit session
+          const { error } = await supabase
+            .from('unpaid_bills')
+            .insert({ report_id: selectedReport.id, customer_name: bill.customer_name, amount: bill.amount, original_amount: bill.amount, notes: bill.notes || null })
           if (error) throw error
         }
       }
@@ -273,7 +274,7 @@ export default function AdminReports() {
     const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
-      const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+      const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
       const diff = r.recon_diff || 0
       const diffStr = diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'
       const diffColor = diff > 0 ? '#d97706' : diff < 0 ? '#dc2626' : '#16a34a'
@@ -384,7 +385,7 @@ export default function AdminReports() {
     const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
-      const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+      const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
       return [
         r.report_date,
         (r as any).profiles?.full_name || 'Unknown',
@@ -410,7 +411,7 @@ export default function AdminReports() {
   // Column totals
   const totals = filteredReports.reduce((acc, r) => {
     const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
-    const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+    const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
     return {
       sales: acc.sales + Number(r.total_sales),
       cash: acc.cash + Number(r.cash),
@@ -572,7 +573,7 @@ export default function AdminReports() {
                 <tbody className="bg-white divide-y divide-gray-100">
                   {filteredReports.map(report => {
                     const expenses = report.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
-                    const credit = report.unpaid_bills?.reduce((s, b) => s + Number(b.amount), 0) || 0
+                    const credit = report.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
                     const diff = report.recon_diff || 0
                     return (
                       <tr key={report.id} className="hover:bg-gray-50">
