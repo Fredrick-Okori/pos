@@ -321,7 +321,6 @@ export default function AdminUnpaidBillDetailPage() {
       const { error: payInsertError } = await supabase.from('bill_payments').insert({
         organization_id: orgId, customer_name: customerName, amount: amt,
         payment_mode: payment.payment_mode, notes: payment.notes || null, paid_at: payment.date,
-        recorded_by_name: profile?.full_name || null,
       })
       if (payInsertError) throw payInsertError
 
