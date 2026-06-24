@@ -54,10 +54,11 @@ type DateFilter = 'all' | 'this_week' | 'last_week' | 'last_month' | 'custom'
 interface PaymentRecord {
   id: string; customer_name: string; amount: number;
   payment_mode: string | null; notes: string | null; paid_at: string;
+  recorded_by_name: string | null;
 }
 type LedgerEntry =
   | { kind: 'bill'; id: string; date: string; recordedBy: string | null; notes: string | null; original: number; remaining: number }
-  | { kind: 'payment'; id: string; date: string; notes: string | null; amount: number; payment_mode: string | null }
+  | { kind: 'payment'; id: string; date: string; notes: string | null; amount: number; payment_mode: string | null; recordedBy: string | null }
 const MODE_LABELS: Record<string, string> = {
   cash: 'Cash', airtel_money: 'Airtel Money', mtn_money: 'MTN Money',
   visa_card: 'Visa Card', stanbic: 'Stanbic',
@@ -169,7 +170,7 @@ export default function AdminUnpaidBillDetailPage() {
       recordedBy: b.daily_reports.profiles?.full_name || null,
       notes: b.notes, original: Number(b.original_amount) || Number(b.amount), remaining: Number(b.amount) })),
     ...payments.map(p => ({ kind: 'payment' as const, id: p.id, date: p.paid_at,
-      notes: p.notes, amount: Number(p.amount), payment_mode: p.payment_mode })),
+      notes: p.notes, amount: Number(p.amount), payment_mode: p.payment_mode, recordedBy: p.recorded_by_name || null })),
   ]
   const filteredLedger: LedgerEntry[] = (() => {
     if (dateFilter === 'all') return ledger
@@ -320,6 +321,7 @@ export default function AdminUnpaidBillDetailPage() {
       const { error: payInsertError } = await supabase.from('bill_payments').insert({
         organization_id: orgId, customer_name: customerName, amount: amt,
         payment_mode: payment.payment_mode, notes: payment.notes || null, paid_at: payment.date,
+        recorded_by_name: profile?.full_name || null,
       })
       if (payInsertError) throw payInsertError
 
@@ -737,9 +739,17 @@ export default function AdminUnpaidBillDetailPage() {
                     .map(entry => {
                       if (entry.kind === 'bill') {
                         const billCleared = entry.remaining === 0
+                        const amountPaid = entry.original - entry.remaining
+                        const isPartial = !billCleared && amountPaid > 0
+
+                        let rowStyle: React.CSSProperties = {}
+                        if (billCleared) rowStyle = { background: 'rgba(240,253,244,.4)' }
+                        else if (isPartial) rowStyle = { background: 'rgba(139,92,246,.04)' }
+
                         return (
-                          <tr key={entry.id} className={billCleared ? 'hover:bg-green-50/40' : 'hover:bg-gray-50/60'}
-                            style={billCleared ? { background: 'rgba(240,253,244,.4)' } : {}}>
+                          <tr key={entry.id}
+                            className={billCleared ? 'hover:bg-green-50/40' : isPartial ? 'hover:bg-violet-50/40' : 'hover:bg-gray-50/60'}
+                            style={rowStyle}>
                             <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
                               {format(new Date(entry.date), 'MMM dd, yyyy')}
                             </td>
@@ -752,10 +762,19 @@ export default function AdminUnpaidBillDetailPage() {
                             <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono text-gray-700">
                               {entry.original.toLocaleString()}
                             </td>
-                            <td className="px-5 py-3.5 text-right text-sm text-gray-300">—</td>
+                            <td className="px-5 py-3.5 text-right text-sm font-semibold font-mono">
+                              {amountPaid > 0
+                                ? <span className="text-violet-600">{amountPaid.toLocaleString()}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
                             <td className="px-4 py-3.5 text-center">
                               {billCleared ? (
                                 <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Cleared</span>
+                              ) : isPartial ? (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">Partial</span>
+                                  <span className="text-xs text-gray-400 font-mono">{entry.remaining.toLocaleString()} left</span>
+                                </div>
                               ) : (
                                 <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bill</span>
                               )}
@@ -779,7 +798,9 @@ export default function AdminUnpaidBillDetailPage() {
                             <td className="px-5 py-3.5 text-sm font-medium text-gray-800 whitespace-nowrap">
                               {format(new Date(entry.date), 'MMM dd, yyyy')}
                             </td>
-                            <td className="px-5 py-3.5 text-sm text-gray-300">—</td>
+                            <td className="px-5 py-3.5 text-sm text-gray-600">
+                              {entry.recordedBy ?? <span className="text-gray-300">—</span>}
+                            </td>
                             <td className="px-5 py-3.5 text-sm text-gray-500">
                               {entry.notes || (entry.payment_mode ? MODE_LABELS[entry.payment_mode] || entry.payment_mode : <span className="text-gray-300">—</span>)}
                             </td>

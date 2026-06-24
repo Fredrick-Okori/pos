@@ -28,6 +28,8 @@ export default function AdminReports() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null)
   const [saving, setSaving] = useState(false)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const fetchEmployees = async () => {
     try {
@@ -67,6 +69,7 @@ export default function AdminReports() {
 
   useEffect(() => { if (selectedOrg) fetchEmployees() }, [selectedOrg?.id])
   useEffect(() => { if (selectedOrg) fetchReports() }, [selectedEmployee, dateRange, selectedOrg?.id])
+  useEffect(() => { setPage(1) }, [selectedEmployee, dateRange, reconFilter, selectedOrg?.id])
 
   const setQuickFilter = (filter: string) => {
     const today = new Date()
@@ -408,6 +411,10 @@ export default function AdminReports() {
     ? reports
     : reports.filter(r => r.recon_status === reconFilter)
 
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paginatedReports = filteredReports.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   // Column totals
   const totals = filteredReports.reduce((acc, r) => {
     const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
@@ -525,7 +532,14 @@ export default function AdminReports() {
 
         {/* Reports table */}
         <div className="card overflow-hidden">
-          <h2 className="text-lg font-semibold mb-4">Reports ({filteredReports.length})</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            Reports ({filteredReports.length})
+            {filteredReports.length > PAGE_SIZE && (
+              <span className="ml-2 text-sm font-normal text-gray-400">
+                — showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredReports.length)} of {filteredReports.length}
+              </span>
+            )}
+          </h2>
 
           {loading ? (
             <div className="text-center py-8">
@@ -571,7 +585,7 @@ export default function AdminReports() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {filteredReports.map(report => {
+                  {paginatedReports.map(report => {
                     const expenses = report.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
                     const credit = report.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
                     const diff = report.recon_diff || 0
@@ -640,6 +654,67 @@ export default function AdminReports() {
             </div>
           )}
         </div>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 px-1">
+            <p className="text-sm text-gray-500">
+              Page {safePage} of {totalPages} &nbsp;·&nbsp; {filteredReports.length} reports
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p as number)}
+                        className="w-9 h-9 rounded-lg text-sm font-semibold transition-colors"
+                        style={safePage === p
+                          ? { background: '#0C2340', color: '#fff' }
+                          : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                        }
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+              </div>
+
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'rgba(12,35,64,.07)', color: '#0C2340', border: '1px solid rgba(12,35,64,.15)' }}
+              >
+                Next
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {editModalOpen && selectedReport && (
           <EditReportModal
             report={selectedReport}

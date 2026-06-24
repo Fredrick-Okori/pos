@@ -328,6 +328,7 @@ export default function EmployeeUnpaidBalancePage() {
         payment_mode: payment.payment_mode,
         notes: payment.notes || null,
         paid_at: payment.date,
+        recorded_by_name: profile?.full_name || null,
       })
       if (payInsertError) throw payInsertError
 
