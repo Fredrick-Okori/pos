@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
+import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import CurrencyInput from '@/components/CurrencyInput'
@@ -67,6 +68,7 @@ export default function AdminUnpaidBillDetailPage() {
   const router = useRouter()
   const supabase = createClient()
   const { selectedOrg } = useOrganization()
+  const { profile } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [bills, setBills] = useState<UnpaidBillRow[]>([])
@@ -81,6 +83,12 @@ export default function AdminUnpaidBillDetailPage() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null)
+  const [editForm, setEditForm] = useState<{ amount: number; remaining: number; date: string; payment_mode: string; notes: string } | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [editBalance, setEditBalance] = useState<{ value: number; saving: boolean } | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -308,11 +316,12 @@ export default function AdminUnpaidBillDetailPage() {
         }
       }
 
-      const orgId = selectedOrg?.id || null
-      await supabase.from('bill_payments').insert({
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      const { error: payInsertError } = await supabase.from('bill_payments').insert({
         organization_id: orgId, customer_name: customerName, amount: amt,
         payment_mode: payment.payment_mode, notes: payment.notes || null, paid_at: payment.date,
       })
+      if (payInsertError) throw payInsertError
 
       fetch('/api/email/payment-cleared', {
         method: 'POST',
@@ -333,6 +342,147 @@ export default function AdminUnpaidBillDetailPage() {
       console.error('Payment error:', err)
       toast.error('Failed to record payment')
       setPayment(p => p ? { ...p, submitting: false } : null)
+    }
+  }
+
+  const handleBalanceSave = async () => {
+    if (!editBalance) return
+    setEditBalance(b => b ? { ...b, saving: true } : null)
+    try {
+      const totalOriginal = bills.reduce((s, b) => s + (Number(b.original_amount) || Number(b.amount)), 0)
+      const target = Math.max(0, Math.min(editBalance.value, totalOriginal))
+
+      // Distribute target balance across bills oldest-first:
+      // clear oldest bills first, leave remainder on the latest bill
+      const sorted = [...bills].sort(
+        (a, b) => new Date(a.daily_reports.report_date).getTime() - new Date(b.daily_reports.report_date).getTime()
+      )
+      let remaining = target
+      const newAmounts: Record<string, number> = {}
+      // Walk reversed (newest → oldest) so we fill the target from the back
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const orig = Number(sorted[i].original_amount) || Number(sorted[i].amount)
+        if (remaining >= orig) {
+          newAmounts[sorted[i].id] = orig
+          remaining -= orig
+        } else {
+          newAmounts[sorted[i].id] = remaining
+          remaining = 0
+        }
+      }
+
+      for (const b of sorted) {
+        const { error } = await supabase.from('unpaid_bills').update({ amount: newAmounts[b.id] }).eq('id', b.id)
+        if (error) throw error
+      }
+
+      toast.success('Outstanding balance updated')
+      setEditBalance(null)
+      await fetchData()
+    } catch (err) {
+      console.error('Balance edit error:', err)
+      toast.error('Failed to update balance')
+      setEditBalance(b => b ? { ...b, saving: false } : null)
+    }
+  }
+
+  const openEdit = (entry: LedgerEntry) => {
+    setEditEntry(entry)
+    if (entry.kind === 'payment') {
+      setEditForm({ amount: entry.amount, remaining: 0, date: entry.date, payment_mode: entry.payment_mode || '', notes: entry.notes || '' })
+    } else {
+      setEditForm({ amount: entry.original, remaining: entry.remaining, date: entry.date, payment_mode: '', notes: entry.notes || '' })
+    }
+  }
+
+  const handleEditSave = async () => {
+    if (!editEntry || !editForm) return
+    setEditSaving(true)
+    try {
+      if (editEntry.kind === 'payment') {
+        const { error } = await supabase.from('bill_payments').update({
+          amount: editForm.amount,
+          paid_at: editForm.date,
+          payment_mode: editForm.payment_mode || null,
+          notes: editForm.notes || null,
+        }).eq('id', editEntry.id)
+        if (error) throw error
+      } else {
+        const remaining = Math.min(editForm.remaining, editForm.amount)
+        const { error } = await supabase.from('unpaid_bills').update({
+          original_amount: editForm.amount,
+          amount: remaining,
+          notes: editForm.notes || null,
+        }).eq('id', editEntry.id)
+        if (error) throw error
+      }
+      toast.success('Entry updated')
+      setEditEntry(null)
+      setEditForm(null)
+      await fetchData()
+    } catch (err) {
+      console.error('Edit error:', err)
+      toast.error('Failed to save changes')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDeletePayment = async () => {
+    if (!deleteId || !customerName) return
+    setDeleting(true)
+    try {
+      // Step 1: delete the payment record
+      const { error: deleteError } = await supabase.from('bill_payments').delete().eq('id', deleteId)
+      if (deleteError) throw deleteError
+
+      // Step 2: reset every bill for this customer back to its original amount
+      for (const bill of bills) {
+        const orig = Number(bill.original_amount) || Number(bill.amount)
+        const { error } = await supabase.from('unpaid_bills').update({ amount: orig }).eq('id', bill.id)
+        if (error) throw error
+      }
+
+      // Step 3: fetch all remaining payments for this customer (oldest first)
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      let payQuery = supabase.from('bill_payments').select('*')
+        .ilike('customer_name', customerName)
+        .order('paid_at', { ascending: true })
+      if (orgId) payQuery = payQuery.or(`organization_id.eq.${orgId},organization_id.is.null`)
+      const { data: remaining } = await payQuery
+
+      // Step 4: replay each remaining payment against the bills (oldest bill first)
+      const sortedBills = [...bills].sort(
+        (a, b) => new Date(a.daily_reports.report_date).getTime() - new Date(b.daily_reports.report_date).getTime()
+      )
+      const amounts: Record<string, number> = {}
+      for (const b of sortedBills) amounts[b.id] = Number(b.original_amount) || Number(b.amount)
+
+      for (const pay of remaining || []) {
+        let left = Number(pay.amount)
+        for (const b of sortedBills) {
+          if (left <= 0) break
+          const cur = amounts[b.id]
+          if (cur <= 0) continue
+          if (left >= cur) { amounts[b.id] = 0; left -= cur }
+          else { amounts[b.id] = cur - left; left = 0 }
+        }
+      }
+
+      // Step 5: persist the recomputed amounts
+      for (const b of sortedBills) {
+        const { error } = await supabase.from('unpaid_bills').update({ amount: amounts[b.id] }).eq('id', b.id)
+        if (error) throw error
+      }
+
+      toast.success('Payment deleted and balances restored')
+      setDeleteId(null)
+      await fetchData()
+    } catch (err) {
+      console.error('Delete error:', err)
+      toast.error('Failed to delete payment')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -470,22 +620,33 @@ export default function AdminUnpaidBillDetailPage() {
                   ? { background: 'rgba(16,185,129,.07)', border: '1px solid rgba(16,185,129,.22)' }
                   : { background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' }}
               >
-                <div>
-                  <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isCleared ? 'text-green-700' : 'text-amber-700'}`}>
-                    {isCleared ? 'Balance Cleared' : 'Outstanding Balance'}
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className={`text-xs font-semibold uppercase tracking-widest ${isCleared ? 'text-green-700' : 'text-amber-700'}`}>
+                      {isCleared ? 'Balance Cleared' : 'Outstanding Balance'}
+                    </p>
+                    <button
+                      onClick={() => setEditBalance({ value: total, saving: false })}
+                      className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                      title="Edit outstanding balance"
+                    >
+                      <svg className={`w-3.5 h-3.5 ${isCleared ? 'text-green-500' : 'text-amber-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </div>
                   <p className={`text-3xl font-bold font-mono ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
                     UGX {total.toLocaleString()}
                   </p>
                 </div>
                 {isCleared ? (
-                  <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-10 h-10 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 ) : (
                   <button
                     onClick={() => setPayment({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, payment_mode: '', notes: '', submitting: false })}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all shrink-0"
                     style={{ background: '#059669' }}
                   >
                     Record Payment
@@ -565,6 +726,7 @@ export default function AdminUnpaidBillDetailPage() {
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Billed (UGX)</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid (UGX)</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -598,6 +760,17 @@ export default function AdminUnpaidBillDetailPage() {
                                 <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bill</span>
                               )}
                             </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                onClick={() => openEdit(entry)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                title="Edit bill"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </td>
                           </tr>
                         )
                       } else {
@@ -617,6 +790,28 @@ export default function AdminUnpaidBillDetailPage() {
                             <td className="px-4 py-3.5 text-center">
                               <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Payment</span>
                             </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => openEdit(entry)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                  title="Edit payment"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => setDeleteId(entry.id)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="Delete payment"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         )
                       }
@@ -631,6 +826,7 @@ export default function AdminUnpaidBillDetailPage() {
                     <td className="px-5 py-4 text-right font-bold font-mono text-green-600">
                       {filteredLedgerPaid > 0 ? filteredLedgerPaid.toLocaleString() : '—'}
                     </td>
+                    <td />
                     <td />
                   </tr>
                 </tfoot>
@@ -770,6 +966,207 @@ export default function AdminUnpaidBillDetailPage() {
                   style={{ background: '#059669' }}
                 >
                   {payment.submitting ? 'Recording...' : 'Confirm Payment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Edit Outstanding Balance Modal */}
+        {editBalance && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="px-6 pt-6 pb-4 flex items-start justify-between">
+                <div>
+                  <h2 className="font-bold text-gray-900 text-lg leading-tight">Edit Outstanding Balance</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">{customerName}</p>
+                </div>
+                <button
+                  onClick={() => setEditBalance(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="px-6 pb-5 space-y-3">
+                <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.22)' }}>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">Current Balance</span>
+                  <span className="font-bold font-mono text-amber-600">{total.toLocaleString()} UGX</span>
+                </div>
+                <div>
+                  <label className="label">New Outstanding Balance (UGX)</label>
+                  <CurrencyInput
+                    value={editBalance.value}
+                    onValueChange={v => setEditBalance(b => b ? { ...b, value: v } : null)}
+                    className="input-field"
+                    autoFocus
+                  />
+                  <p className="mt-1 text-xs text-gray-400">Set to 0 to mark this client as fully cleared.</p>
+                </div>
+              </div>
+
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => setEditBalance(null)}
+                  disabled={editBalance.saving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBalanceSave}
+                  disabled={editBalance.saving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: '#0C2340' }}
+                >
+                  {editBalance.saving ? 'Saving...' : 'Save Balance'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Entry Modal */}
+        {editEntry && editForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="px-6 pt-6 pb-4 flex items-start justify-between">
+                <div>
+                  <h2 className="font-bold text-gray-900 text-lg leading-tight">
+                    {editEntry.kind === 'payment' ? 'Edit Payment' : 'Edit Bill'}
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">{customerName}</p>
+                </div>
+                <button
+                  onClick={() => { setEditEntry(null); setEditForm(null) }}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="px-6 pb-5 space-y-4">
+                <div className={`grid gap-3 ${editEntry.kind === 'payment' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <div>
+                    <label className="label">Date</label>
+                    <input
+                      type="date"
+                      value={editForm.date}
+                      onChange={e => setEditForm(f => f ? { ...f, date: e.target.value } : null)}
+                      className="input-field"
+                      disabled={editEntry.kind === 'bill'}
+                    />
+                  </div>
+                  {editEntry.kind === 'payment' && (
+                    <div>
+                      <label className="label">Mode of Payment</label>
+                      <select
+                        value={editForm.payment_mode}
+                        onChange={e => setEditForm(f => f ? { ...f, payment_mode: e.target.value } : null)}
+                        className="input-field"
+                      >
+                        <option value="">— Select —</option>
+                        <option value="cash">Cash</option>
+                        <option value="airtel_money">Airtel Money</option>
+                        <option value="mtn_money">MTN Money</option>
+                        <option value="visa_card">Visa Card</option>
+                        <option value="stanbic">Stanbic</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="label">{editEntry.kind === 'payment' ? 'Amount (UGX)' : 'Original Amount (UGX)'}</label>
+                  <CurrencyInput
+                    value={editForm.amount}
+                    onValueChange={v => setEditForm(f => f ? { ...f, amount: v } : null)}
+                    className="input-field"
+                  />
+                </div>
+
+                {editEntry.kind === 'bill' && (
+                  <div>
+                    <label className="label">
+                      Outstanding Balance (UGX)
+                      <span className="ml-1 text-gray-400 font-normal text-xs">— set to 0 if fully paid</span>
+                    </label>
+                    <CurrencyInput
+                      value={editForm.remaining}
+                      onValueChange={v => setEditForm(f => f ? { ...f, remaining: v } : null)}
+                      className="input-field"
+                    />
+                    {editForm.remaining > editForm.amount && (
+                      <p className="mt-1 text-xs text-red-500">Cannot exceed original amount — will be capped at {editForm.amount.toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="label">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={editForm.notes}
+                    onChange={e => setEditForm(f => f ? { ...f, notes: e.target.value } : null)}
+                    placeholder="Any additional remarks..."
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => { setEditEntry(null); setEditForm(null) }}
+                  disabled={editSaving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={editSaving || editForm.amount <= 0}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: '#0C2340' }}
+                >
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="px-6 pt-6 pb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h2 className="font-bold text-gray-900 text-lg text-center">Delete Payment?</h2>
+                <p className="text-sm text-gray-500 text-center mt-1">This payment record will be permanently removed and the outstanding balance will be restored accordingly.</p>
+              </div>
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => setDeleteId(null)}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeletePayment}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  style={{ background: '#dc2626' }}
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>

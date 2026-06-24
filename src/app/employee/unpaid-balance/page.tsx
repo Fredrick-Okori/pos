@@ -319,6 +319,18 @@ export default function EmployeeUnpaidBalancePage() {
 
       const isFullPayment = amt >= payment.customer.total
 
+      // Record the payment transaction so it appears in accounts and history
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      const { error: payInsertError } = await supabase.from('bill_payments').insert({
+        organization_id: orgId,
+        customer_name: payment.customer.name,
+        amount: amt,
+        payment_mode: payment.payment_mode,
+        notes: payment.notes || null,
+        paid_at: payment.date,
+      })
+      if (payInsertError) throw payInsertError
+
       fetch('/api/email/payment-cleared', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,6 +350,7 @@ export default function EmployeeUnpaidBalancePage() {
       )
       setPayment(null)
       await fetchBills()
+      await fetchPayments()
     } catch (err) {
       console.error('Payment error:', err)
       toast.error('Failed to record payment')

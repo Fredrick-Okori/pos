@@ -355,7 +355,7 @@ export default function UnpaidBalanceDetailPage() {
 
       // Record the payment transaction
       const orgId = selectedOrg?.id || profile?.organization_id || null
-      await supabase.from('bill_payments').insert({
+      const { error: payInsertError } = await supabase.from('bill_payments').insert({
         organization_id: orgId,
         customer_name: customerName,
         amount: amt,
@@ -363,6 +363,7 @@ export default function UnpaidBalanceDetailPage() {
         notes: payment.notes || null,
         paid_at: payment.date,
       })
+      if (payInsertError) throw payInsertError
 
       fetch('/api/email/payment-cleared', {
         method: 'POST',
