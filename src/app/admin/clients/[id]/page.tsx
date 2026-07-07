@@ -265,7 +265,7 @@ export default function ClientStatementPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['superadmin']}>
+      <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
         <DashboardLayout>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -277,7 +277,7 @@ export default function ClientStatementPage() {
 
   if (!client) {
     return (
-      <ProtectedRoute allowedRoles={['superadmin']}>
+      <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
         <DashboardLayout>
           <div className="text-center py-16">
             <p className="text-gray-400 mb-4">Client not found.</p>
@@ -289,7 +289,7 @@ export default function ClientStatementPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
         {/* Header */}
         <div className="mb-6">

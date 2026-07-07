@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
-    const { clientName, amountPaid, remainingBalance, paymentMode, date } = await req.json()
+    const { clientName, amountPaid, remainingBalance, paymentMode, date, organizationName = 'Finance' } = await req.json()
 
     const formattedDate = new Date(date).toLocaleDateString('en-UG', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
       from: 'SEIV <finance@alloninc.com>',
       to: ['elias@alloninc.com', 'fredrick@alloninc.com'],
       subject: isCleared
-        ? `Balance Cleared – ${clientName}`
-        : `Payment Received – ${clientName} (UGX ${Number(amountPaid).toLocaleString()})`,
+        ? `${organizationName} - Balance Cleared - ${clientName}`
+        : `${organizationName} - Payment Received - ${clientName} (UGX ${Number(amountPaid).toLocaleString()})`,
       html: `
 <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -99,7 +99,8 @@ export async function POST(req: NextRequest) {
                     </table>
 
                     <h1 style="margin:0 0 6px;color:#f8fafc;font-size:28px;font-weight:800;letter-spacing:-.5px">${clientName}</h1>
-                    <p style="margin:0;color:rgba(148,163,184,.65);font-size:13px">${formattedDate}</p>
+                    <p style="margin:0 0 8px;color:rgba(148,163,184,.65);font-size:13px">${formattedDate}</p>
+                    <p style="margin:0;display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);color:#C9A84C">${organizationName}</p>
 
                     <!-- Amount block -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
@@ -207,8 +208,8 @@ export async function POST(req: NextRequest) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding:22px 40px;text-align:center">
-                    <p style="margin:0 0 4px;font-size:12px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:.1em">SEIV &nbsp;&middot;&nbsp; Management System</p>
-                    <p style="margin:0;font-size:11px;color:#1e293b">SEIV Point of Sale &nbsp;&middot;&nbsp; Automated Payment Notification</p>
+                    <p style="margin:0 0 4px;font-size:12px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:.1em">${organizationName} &nbsp;&middot;&nbsp; Management System</p>
+                    <p style="margin:0;font-size:11px;color:#1e293b">${organizationName} Point of Sale &nbsp;&middot;&nbsp; Automated Payment Notification</p>
                   </td>
                 </tr>
               </table>

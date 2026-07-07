@@ -340,6 +340,7 @@ export default function EmployeeUnpaidBalancePage() {
           remainingBalance: Math.max(0, payment.customer.total - amt),
           paymentMode: payment.payment_mode,
           date: payment.date,
+          organizationName: selectedOrg?.name ?? 'Finance',
         }),
       }).catch(() => {})
 

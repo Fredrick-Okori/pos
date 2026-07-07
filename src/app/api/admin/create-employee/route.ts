@@ -22,11 +22,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Parse request body
-  const { email, password, full_name, organization_id } = await req.json()
+  const { email, password, full_name, organization_id, role: requestedRole } = await req.json()
 
   if (!email || !password || !full_name) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
+
+  const assignedRole: 'employee' | 'manager' = requestedRole === 'manager' ? 'manager' : 'employee'
 
   // Use admin client with service role key
   const supabaseAdmin = createClient(
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
     email_confirm: true,
     user_metadata: {
       full_name,
-      role: 'employee',
+      role: assignedRole,
       organization_id: organization_id || null,
     },
   })
@@ -64,13 +66,13 @@ export async function POST(req: NextRequest) {
       id: userId,
       email,
       full_name,
-      role: 'employee',
+      role: assignedRole,
       organization_id: organization_id || null,
     })
-  } else if (organization_id) {
+  } else {
     await supabaseAdmin
       .from('profiles')
-      .update({ organization_id })
+      .update({ role: assignedRole, ...(organization_id ? { organization_id } : {}) })
       .eq('id', userId)
   }
 

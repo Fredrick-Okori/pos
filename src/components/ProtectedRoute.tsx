@@ -3,10 +3,11 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { UserRole } from '@/types'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: ('employee' | 'superadmin')[]
+  allowedRoles?: UserRole[]
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -18,9 +19,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       if (!user) {
         router.push('/')
       } else if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-        // Redirect based on role
         if (profile.role === 'superadmin') {
           router.push('/admin/dashboard')
+        } else if (profile.role === 'manager') {
+          router.push('/manager/dashboard')
         } else {
           router.push('/employee/dashboard')
         }

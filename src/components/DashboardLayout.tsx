@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
   const { profile, signOut } = useAuth()
   const pathname = usePathname()
   const isAdmin = profile?.role === 'superadmin'
+  const isManager = profile?.role === 'manager'
 
   const employeeMenuItems = [
     {
@@ -73,7 +74,35 @@ export default function DashboardLayout({ children }: SidebarProps) {
     },
   ]
 
-  const menuItems = isAdmin ? adminMenuItems : employeeMenuItems
+  const managerMenuItems = [
+    {
+      name: 'Dashboard',
+      href: '/manager/dashboard',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
+    },
+    {
+      name: 'All Reports',
+      href: '/admin/reports',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+    },
+    {
+      name: 'Invoices',
+      href: '/admin/unpaid-bills',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    },
+    {
+      name: 'Analytics',
+      href: '/admin/analytics',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+    },
+    {
+      name: 'Client Ledger',
+      href: '/admin/clients',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+    },
+  ]
+
+  const menuItems = isAdmin ? adminMenuItems : isManager ? managerMenuItems : employeeMenuItems
 
   useEffect(() => {
     const handler = () => {
@@ -124,7 +153,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
             </div>
             <span className="shrink-0 text-gold-500 font-bold uppercase rounded px-1.5 py-0.5"
               style={{ fontSize: 8, background: 'rgba(201,168,76,.15)', letterSpacing: '.1em' }}>
-              {isAdmin ? 'Admin' : 'Staff'}
+              {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Staff'}
             </span>
           </div>
         </div>
@@ -132,7 +161,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
           <p className="px-2 mb-2 font-sans font-semibold uppercase tracking-widest text-white/20" style={{ fontSize: 9 }}>
-            {isAdmin ? 'Admin' : 'Reports'}
+            {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Reports'}
           </p>
           {menuItems.map((item) => {
             const active = pathname === item.href

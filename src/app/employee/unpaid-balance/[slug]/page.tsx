@@ -374,6 +374,7 @@ export default function UnpaidBalanceDetailPage() {
           remainingBalance: Math.max(0, total - amt),
           paymentMode: payment.payment_mode,
           date: payment.date,
+          organizationName: selectedOrg?.name ?? 'Finance',
         }),
       }).catch(() => {})
 

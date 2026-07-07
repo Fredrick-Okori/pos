@@ -275,7 +275,7 @@ export default function AdminClientsPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

@@ -363,7 +363,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
 
         {/* Header */}

@@ -391,6 +391,7 @@ export default function EmployeeDashboard() {
         body: JSON.stringify({
           employeeName: profile?.full_name ?? 'Employee',
           reportDate: formData.report_date,
+          organizationName: selectedOrg?.name ?? 'Finance',
           totalSales: formData.total_sales,
           cash: formData.cash,
           airtelMoney: formData.airtel_money,

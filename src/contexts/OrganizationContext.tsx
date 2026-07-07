@@ -25,6 +25,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const isAdmin = profile?.role === 'superadmin'
+  // managers are locked to their assigned org like employees
 
   const fetchOrganizations = async () => {
     try {

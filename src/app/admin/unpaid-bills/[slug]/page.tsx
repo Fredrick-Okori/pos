@@ -333,6 +333,7 @@ export default function AdminUnpaidBillDetailPage() {
           remainingBalance: Math.max(0, total - amt),
           paymentMode: payment.payment_mode,
           date: payment.date,
+          organizationName: selectedOrg?.name ?? 'Finance',
         }),
       }).catch(() => {})
 
@@ -488,7 +489,7 @@ export default function AdminUnpaidBillDetailPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
         {loading ? (
           <div className="flex items-center justify-center py-20">

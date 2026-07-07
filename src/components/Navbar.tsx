@@ -40,11 +40,13 @@ export default function Navbar({ title = 'SEIV' }: NavbarProps) {
                   {profile.full_name}
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  profile.role === 'superadmin' 
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                  profile.role === 'superadmin'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : profile.role === 'manager'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                 }`}>
-                  {profile.role === 'superadmin' ? 'Admin' : 'Employee'}
+                  {profile.role === 'superadmin' ? 'Admin' : profile.role === 'manager' ? 'Manager' : 'Employee'}
                 </span>
               </div>
             )}
@@ -77,6 +79,15 @@ export default function Navbar({ title = 'SEIV' }: NavbarProps) {
                       onClick={() => setMenuOpen(false)}
                     >
                       Admin Dashboard
+                    </Link>
+                  )}
+                  {profile?.role === 'manager' && (
+                    <Link
+                      href="/manager/dashboard"
+                      className="block px-4 py-2 text-sm text-blue-100 hover:bg-blue-800/50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Manager Dashboard
                     </Link>
                   )}
                   {profile?.role === 'employee' && (

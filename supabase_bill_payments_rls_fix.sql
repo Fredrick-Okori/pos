@@ -42,11 +42,15 @@ CREATE POLICY "Users can read own org bill_payments"
     )
   );
 
--- INSERT: any authenticated user may only insert into their own org
+-- INSERT: superadmins can insert for any org; employees only for their own org
 CREATE POLICY "Users can insert own org bill_payments"
   ON bill_payments FOR INSERT TO authenticated
   WITH CHECK (
-    organization_id IN (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE id = auth.uid() AND role = 'superadmin'
+    )
+    OR organization_id IN (
       SELECT organization_id FROM profiles WHERE id = auth.uid()
     )
   );

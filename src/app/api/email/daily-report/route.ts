@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     const {
       employeeName,
       reportDate,
+      organizationName,
       totalSales,
       cash,
       airtelMoney,
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
     }: {
       employeeName: string
       reportDate: string
+      organizationName: string
       totalSales: number
       cash: number
       airtelMoney: number
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await resend.emails.send({
       from: 'SEIV <finance@alloninc.com>',
       to: ['elias@alloninc.com', 'fredrick@alloninc.com'],
-      subject: `Daily Report – ${formattedDate} (${employeeName})`,
+      subject: `${organizationName} - Daily Report - ${employeeName} - ${formattedDate}`,
       html: `
 <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -218,7 +220,8 @@ export async function POST(req: NextRequest) {
                     </table>
 
                     <h1 style="margin:0 0 4px;color:#f8fafc;font-size:26px;font-weight:800;letter-spacing:-.5px">${formattedDate}</h1>
-                    <p style="margin:0;color:rgba(148,163,184,.65);font-size:13px">Submitted by ${employeeName}</p>
+                    <p style="margin:0 0 6px;color:rgba(148,163,184,.65);font-size:13px">Submitted by ${employeeName}</p>
+                    <p style="margin:0;display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);color:#C9A84C">${organizationName}</p>
 
                     <!-- Total Sales block -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
@@ -335,8 +338,8 @@ export async function POST(req: NextRequest) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding:22px 40px;text-align:center">
-                    <p style="margin:0 0 4px;font-size:12px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:.1em">SEIV &nbsp;&middot;&nbsp; Management System</p>
-                    <p style="margin:0;font-size:11px;color:#1e293b">SEIV Point of Sale &nbsp;&middot;&nbsp; Automated Report Notification</p>
+                    <p style="margin:0 0 4px;font-size:12px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:.1em">${organizationName} &nbsp;&middot;&nbsp; Management System</p>
+                    <p style="margin:0;font-size:11px;color:#1e293b">${organizationName} Point of Sale &nbsp;&middot;&nbsp; Automated Report Notification</p>
                   </td>
                 </tr>
               </table>

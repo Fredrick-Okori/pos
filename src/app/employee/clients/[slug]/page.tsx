@@ -303,6 +303,7 @@ ${client.phone_number ? `<div class="meta">Phone: ${client.phone_number}${client
           remainingBalance: Math.max(0, totalOutstanding - amt),
           paymentMode: payment.payment_mode,
           date: payment.date,
+          organizationName: selectedOrg?.name ?? 'Finance',
         }),
       }).catch(() => {})
 

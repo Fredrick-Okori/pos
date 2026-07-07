@@ -443,7 +443,7 @@ export default function AdminReports() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">

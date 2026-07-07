@@ -213,7 +213,7 @@ export default function AdminUnpaidBills() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['superadmin']}>
+    <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>

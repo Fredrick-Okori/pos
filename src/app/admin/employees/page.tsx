@@ -21,7 +21,8 @@ export default function EmployeeManagement() {
   const [newEmployee, setNewEmployee] = useState({
     email: '',
     password: '',
-    full_name: ''
+    full_name: '',
+    role: 'employee' as 'employee' | 'manager',
   })
 
   const fetchEmployees = async () => {
@@ -75,6 +76,7 @@ export default function EmployeeManagement() {
           password: newEmployee.password,
           full_name: newEmployee.full_name,
           organization_id: selectedOrg?.id || null,
+          role: newEmployee.role,
         }),
       })
 
@@ -83,7 +85,7 @@ export default function EmployeeManagement() {
 
       toast.success('Employee created successfully!')
       setShowCreateModal(false)
-      setNewEmployee({ email: '', password: '', full_name: '' })
+      setNewEmployee({ email: '', password: '', full_name: '', role: 'employee' })
 
       // Refresh the list after a short delay to allow trigger to complete
       setTimeout(fetchEmployees, 1000)
@@ -95,7 +97,7 @@ export default function EmployeeManagement() {
     }
   }
 
-  const handleRoleChange = async (employeeId: string, newRole: 'employee' | 'superadmin') => {
+  const handleRoleChange = async (employeeId: string, newRole: 'employee' | 'superadmin' | 'manager') => {
     try {
       const { error } = await supabase
         .from('profiles')
@@ -170,11 +172,13 @@ export default function EmployeeManagement() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          employee.role === 'superadmin' 
-                            ? 'bg-purple-100 text-purple-800' 
+                          employee.role === 'superadmin'
+                            ? 'bg-purple-100 text-purple-800'
+                            : employee.role === 'manager'
+                            ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-green-100 text-green-800'
                         }`}>
-                          {employee.role === 'superadmin' ? 'Admin' : 'Employee'}
+                          {employee.role === 'superadmin' ? 'Admin' : employee.role === 'manager' ? 'Manager' : 'Employee'}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
@@ -184,10 +188,11 @@ export default function EmployeeManagement() {
                         {employee.id !== user?.id && (
                           <select
                             value={employee.role}
-                            onChange={(e) => handleRoleChange(employee.id, e.target.value as 'employee' | 'superadmin')}
+                            onChange={(e) => handleRoleChange(employee.id, e.target.value as 'employee' | 'superadmin' | 'manager')}
                             className="text-sm border border-gray-200 rounded px-2 py-1"
                           >
                             <option value="employee">Employee</option>
+                            <option value="manager">Manager</option>
                             <option value="superadmin">Admin</option>
                           </select>
                         )}
@@ -255,6 +260,18 @@ export default function EmployeeManagement() {
                     minLength={6}
                   />
                   <p className="text-xs text-gray-400 mt-1">Minimum 6 characters</p>
+                </div>
+
+                <div>
+                  <label className="label">Role</label>
+                  <select
+                    value={newEmployee.role}
+                    onChange={(e) => setNewEmployee(prev => ({ ...prev, role: e.target.value as 'employee' | 'manager' }))}
+                    className="input-field"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                  </select>
                 </div>
 
                 <div className="flex gap-3 pt-4">
