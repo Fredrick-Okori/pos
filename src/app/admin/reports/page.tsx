@@ -278,6 +278,7 @@ export default function AdminReports() {
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
       const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
+      const usdUgx = Number(r.usd_amount) * Number(r.exchange_rate)
       const diff = r.recon_diff || 0
       const diffStr = diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'
       const diffColor = diff > 0 ? '#d97706' : diff < 0 ? '#dc2626' : '#16a34a'
@@ -290,6 +291,7 @@ export default function AdminReports() {
         <td style="text-align:right;color:#16a34a">${Number(r.airtel_money).toLocaleString()}</td>
         <td style="text-align:right;color:#16a34a">${Number(r.mtn_money).toLocaleString()}</td>
         <td style="text-align:right;color:#16a34a">${Number(r.visa_card).toLocaleString()}</td>
+        <td style="text-align:right;color:#7c3aed">${usdUgx > 0 ? usdUgx.toLocaleString() : '–'}</td>
         <td style="text-align:right;color:#666">${Number(r.complementaries).toLocaleString()}</td>
         <td style="text-align:right;color:#666">${Number(r.discounts).toLocaleString()}</td>
         <td style="text-align:right;color:#d97706">${expenses.toLocaleString()}</td>
@@ -329,6 +331,7 @@ export default function AdminReports() {
   <div class="card"><div class="card-label">Total Sales</div><div class="card-val" style="color:#0C2340">${totals.sales.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Cash Collected</div><div class="card-val" style="color:#16a34a">${totals.cash.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Airtel + MTN</div><div class="card-val" style="color:#16a34a">${(totals.airtel + totals.mtn).toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">USD → UGX</div><div class="card-val" style="color:#7c3aed">${totals.usdUgx.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Total Expenses</div><div class="card-val" style="color:#d97706">${totals.expenses.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Credit Sales</div><div class="card-val" style="color:#dc2626">${totals.credit.toLocaleString()} UGX</div></div>
   <div class="card"><div class="card-label">Days Shown</div><div class="card-val">${filteredReports.length}</div></div>
@@ -342,13 +345,14 @@ export default function AdminReports() {
       <td style="text-align:right">${totals.airtel.toLocaleString()}</td>
       <td style="text-align:right">${totals.mtn.toLocaleString()}</td>
       <td style="text-align:right">${totals.visa.toLocaleString()}</td>
+      <td style="text-align:right">${totals.usdUgx.toLocaleString()}</td>
       <td style="text-align:right">${totals.comp.toLocaleString()}</td>
       <td style="text-align:right">${totals.disc.toLocaleString()}</td>
       <td style="text-align:right">${totals.expenses.toLocaleString()}</td>
       <td style="text-align:right">${totals.credit.toLocaleString()}</td>
       <td colspan="2"></td>
     </tr>
-    <tr><th>Date</th><th>Employee</th><th class="r">Total Sales</th><th class="r">Cash</th><th class="r">Airtel</th><th class="r">MTN</th><th class="r">Visa</th><th class="r">Comp</th><th class="r">Disc</th><th class="r">Expenses</th><th class="r">Credit</th><th class="c">Recon</th><th class="r">Diff</th></tr>
+    <tr><th>Date</th><th>Employee</th><th class="r">Total Sales</th><th class="r">Cash</th><th class="r">Airtel</th><th class="r">MTN</th><th class="r">Visa</th><th class="r">USD→UGX</th><th class="r">Comp</th><th class="r">Disc</th><th class="r">Expenses</th><th class="r">Credit</th><th class="c">Recon</th><th class="r">Diff</th></tr>
   </thead>
   <tbody>${rows}</tbody>
 </table>
@@ -385,15 +389,16 @@ export default function AdminReports() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
+    const headers = ['Date', 'Employee', 'Total Sales', 'Cash', 'Airtel', 'MTN', 'Visa', 'USD→UGX', 'Comp', 'Disc', 'Expenses', 'Credit Sales', 'Recon', 'Diff']
     const rows = filteredReports.map(r => {
       const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
       const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
+      const usdUgx = Number(r.usd_amount) * Number(r.exchange_rate)
       return [
         r.report_date,
         (r as any).profiles?.full_name || 'Unknown',
         r.total_sales, r.cash, r.airtel_money, r.mtn_money, r.visa_card,
-        r.complementaries, r.discounts, expenses, credit,
+        usdUgx, r.complementaries, r.discounts, expenses, credit,
         r.recon_status || '', r.recon_diff || 0
       ]
     })
@@ -419,18 +424,20 @@ export default function AdminReports() {
   const totals = filteredReports.reduce((acc, r) => {
     const expenses = r.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
     const credit = r.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
+    const usdUgx = Number(r.usd_amount) * Number(r.exchange_rate)
     return {
       sales: acc.sales + Number(r.total_sales),
       cash: acc.cash + Number(r.cash),
       airtel: acc.airtel + Number(r.airtel_money),
       mtn: acc.mtn + Number(r.mtn_money),
       visa: acc.visa + Number(r.visa_card),
+      usdUgx: acc.usdUgx + usdUgx,
       comp: acc.comp + Number(r.complementaries),
       disc: acc.disc + Number(r.discounts),
       expenses: acc.expenses + expenses,
       credit: acc.credit + credit,
     }
-  }, { sales: 0, cash: 0, airtel: 0, mtn: 0, visa: 0, comp: 0, disc: 0, expenses: 0, credit: 0 })
+  }, { sales: 0, cash: 0, airtel: 0, mtn: 0, visa: 0, usdUgx: 0, comp: 0, disc: 0, expenses: 0, credit: 0 })
 
   const reconBadge = (status: string | null) => {
     if (!status) return <span className="text-gray-400 text-xs">–</span>
@@ -474,13 +481,14 @@ export default function AdminReports() {
         </div>
 
         {/* Summary strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 border border-gray-200 rounded-xl overflow-hidden mb-6 divide-x divide-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 border border-gray-200 rounded-xl overflow-hidden mb-6 divide-x divide-gray-200">
           {[
             { label: 'Total Sales', value: totals.sales, color: 'text-gray-900' },
             { label: 'Credit Sales', value: totals.credit, color: 'text-red-600' },
             { label: 'Total Expenses', value: totals.expenses, color: 'text-amber-600' },
             { label: 'Cash Collected', value: totals.cash, color: 'text-emerald-600' },
             { label: 'Airtel + MTN', value: totals.airtel + totals.mtn, color: 'text-blue-600' },
+            { label: 'USD → UGX', value: totals.usdUgx, color: 'text-violet-600' },
             { label: 'Days Shown', value: filteredReports.length, color: 'text-gray-700', raw: true },
           ].map(({ label, value, color, raw }) => (
             <div key={label} className="bg-white px-4 py-3">
@@ -560,6 +568,7 @@ export default function AdminReports() {
                     <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.airtel.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.mtn.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.visa.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-violet-300">{totals.usdUgx.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.comp.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.disc.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-bold font-sans text-amber-300">{totals.expenses.toLocaleString()}</td>
@@ -575,6 +584,7 @@ export default function AdminReports() {
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">Airtel</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">MTN</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">Visa</th>
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">USD→UGX</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">Comp</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">Disc</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 uppercase">Expenses</th>
@@ -589,6 +599,7 @@ export default function AdminReports() {
                     const expenses = report.expenses?.reduce((s, e) => s + Number(e.amount), 0) || 0
                     const credit = report.unpaid_bills?.reduce((s, b) => s + Number(b.original_amount || b.amount), 0) || 0
                     const diff = report.recon_diff || 0
+                    const usdUgx = Number(report.usd_amount) * Number(report.exchange_rate)
                     return (
                       <tr key={report.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2 whitespace-nowrap font-sans text-xs text-gray-700">{format(new Date(report.report_date), 'MMM dd, yyyy')}</td>
@@ -598,6 +609,9 @@ export default function AdminReports() {
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.airtel_money).toLocaleString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.mtn_money).toLocaleString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-emerald-600">{Number(report.visa_card).toLocaleString()}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-violet-600">
+                          {usdUgx > 0 ? usdUgx.toLocaleString() : <span className="text-gray-300">–</span>}
+                        </td>
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-gray-500">{Number(report.complementaries).toLocaleString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-gray-500">{Number(report.discounts).toLocaleString()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-right font-sans text-amber-600">{expenses.toLocaleString()}</td>
@@ -607,42 +621,51 @@ export default function AdminReports() {
                           {diff !== 0 ? (diff > 0 ? '+' : '') + diff.toLocaleString() : '–'}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-center">
-                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                          <div className="flex items-center justify-center gap-1">
+                            {/* Lock / Unlock */}
                             {report.is_locked ? (
                               <button
                                 onClick={() => handleUnlock(report.id, report.report_date)}
-                                className="text-xs font-medium px-2 py-1 rounded transition-colors flex items-center gap-1"
-                                style={{ color: '#92400e', background: 'rgba(201,168,76,.12)', border: '1px solid rgba(201,168,76,.35)' }}
                                 title="Unlock so employee can edit"
+                                className="p-1.5 rounded transition-colors"
+                                style={{ color: '#92400e', background: 'rgba(201,168,76,.12)', border: '1px solid rgba(201,168,76,.35)' }}
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
-                                Unlock
                               </button>
                             ) : (
                               <span
-                                className="text-xs font-medium px-2 py-1 rounded flex items-center gap-1"
+                                title="Open — employee can edit"
+                                className="p-1.5 rounded"
                                 style={{ color: '#16a34a', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.2)' }}
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                                 </svg>
-                                Open
                               </span>
                             )}
+                            {/* Edit */}
                             <button
                               onClick={() => openEditModal(report)}
-                              className="text-xs font-medium px-2 py-1 rounded transition-colors"
+                              title="Edit report"
+                              className="p-1.5 rounded transition-colors hover:bg-blue-50"
                               style={{ color: '#0C2340', background: 'rgba(12,35,64,.06)', border: '1px solid rgba(12,35,64,.15)' }}
                             >
-                              Edit
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
                             </button>
+                            {/* Delete */}
                             <button
                               onClick={() => handleDelete(report.id, report.report_date)}
-                              className="text-xs text-red-400 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                              title="Delete report"
+                              className="p-1.5 rounded transition-colors hover:bg-red-50"
+                              style={{ color: '#dc2626', background: 'rgba(220,38,38,.06)', border: '1px solid rgba(220,38,38,.15)' }}
                             >
-                              Delete
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
                             </button>
                           </div>
                         </td>
