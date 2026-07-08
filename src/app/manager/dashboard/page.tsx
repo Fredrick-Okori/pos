@@ -50,7 +50,7 @@ export default function ManagerDashboard() {
 
       setReports(reportsRes.data || [])
 
-      const bills = billsRes.data || []
+      const bills = (billsRes.data || []) as { amount: number }[]
       setUnpaidTotal(bills.reduce((s, b) => s + Number(b.amount), 0))
       setUnpaidCount(bills.length)
     } catch (err) {
