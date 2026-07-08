@@ -7,23 +7,19 @@ import { DailyReport } from '@/types'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format } from 'date-fns'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 
 export default function ManagerDashboard() {
   const { profile } = useAuth()
-  const { selectedOrg } = useOrganization()
+  const { selectedOrg, loading: orgLoading } = useOrganization()
   const supabase = createClient()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [reports, setReports] = useState<DailyReport[]>([])
   const [unpaidTotal, setUnpaidTotal] = useState(0)
   const [unpaidCount, setUnpaidCount] = useState(0)
-
-  const dateRange = {
-    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  }
 
   useEffect(() => {
     if (!selectedOrg) return
@@ -34,27 +30,40 @@ export default function ManagerDashboard() {
     if (!selectedOrg) return
     setLoading(true)
     try {
-      const [reportsRes, billsRes] = await Promise.all([
-        supabase
-          .from('daily_reports')
-          .select('*, profiles(full_name)')
-          .eq('organization_id', selectedOrg.id)
-          .gte('report_date', dateRange.start)
-          .lte('report_date', dateRange.end)
-          .order('report_date', { ascending: false }),
-        supabase
+      const reportsRes = await supabase
+        .from('daily_reports')
+        .select('*, profiles!user_id(full_name)')
+        .eq('organization_id', selectedOrg.id)
+        .order('report_date', { ascending: false })
+
+      if (reportsRes.error) {
+        console.error('daily_reports error:', reportsRes.error)
+        toast.error('Failed to load reports: ' + reportsRes.error.message)
+      }
+
+      const fetchedReports: DailyReport[] = (reportsRes.data || []) as DailyReport[]
+      setReports(fetchedReports)
+
+      // Fetch outstanding bills using report IDs from this org
+      const reportIds = fetchedReports.map(r => r.id)
+      if (reportIds.length > 0) {
+        const billsRes = await supabase
           .from('unpaid_bills')
-          .select('amount, daily_reports!inner(organization_id)')
-          .eq('daily_reports.organization_id', selectedOrg.id),
-      ])
+          .select('amount')
+          .in('report_id', reportIds)
 
-      setReports(reportsRes.data || [])
+        if (billsRes.error) console.error('unpaid_bills error:', billsRes.error)
 
-      const bills = (billsRes.data || []) as { amount: number }[]
-      setUnpaidTotal(bills.reduce((s, b) => s + Number(b.amount), 0))
-      setUnpaidCount(bills.length)
+        const bills = billsRes.data || []
+        setUnpaidTotal(bills.reduce((s: number, b: { amount: number }) => s + Number(b.amount), 0))
+        setUnpaidCount(bills.length)
+      } else {
+        setUnpaidTotal(0)
+        setUnpaidCount(0)
+      }
     } catch (err) {
       console.error(err)
+      toast.error('Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -131,12 +140,19 @@ export default function ManagerDashboard() {
           </p>
         </div>
 
+        {/* No org assigned */}
+        {!orgLoading && !selectedOrg && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-700 text-sm mb-8">
+            No organization is assigned to your account. Please contact your administrator.
+          </div>
+        )}
+
         {/* Stat cards */}
-        {loading ? (
+        {(orgLoading || loading) ? (
           <div className="flex items-center justify-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
-        ) : (
+        ) : selectedOrg && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {statCards.map((card) => (
               <div key={card.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { LuCastle } from 'react-icons/lu'
 
 export default function OrganizationSwitcher() {
   const { organizations, selectedOrg, setSelectedOrg, loading } = useOrganization()
@@ -29,9 +30,7 @@ export default function OrganizationSwitcher() {
   if (!isAdmin) {
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-800/40 rounded-lg">
-        <svg className="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
+        <LuCastle className="w-4 h-4 text-blue-300" />
         <span className="text-sm font-medium text-blue-100">{selectedOrg.name}</span>
       </div>
     )
@@ -43,9 +42,7 @@ export default function OrganizationSwitcher() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-1.5 bg-blue-800/40 hover:bg-blue-700/50 rounded-lg transition-colors"
       >
-        <svg className="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
+        <LuCastle className="w-4 h-4 text-blue-300" />
         <span className="text-sm font-medium text-blue-100 max-w-[150px] truncate">
           {selectedOrg.name}
         </span>
