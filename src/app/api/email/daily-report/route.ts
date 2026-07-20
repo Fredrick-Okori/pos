@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 interface Expense {
   description: string
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
       employeeName,
       reportDate,
       organizationName,
+      organizationId,
       totalSales,
       cash,
       airtelMoney,
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
       employeeName: string
       reportDate: string
       organizationName: string
+      organizationId?: string | null
       totalSales: number
       cash: number
       airtelMoney: number
@@ -148,9 +151,30 @@ export async function POST(req: NextRequest) {
         </tr>
       </table>`
 
+    const baseRecipients = ['elias@alloninc.com', 'fredrick@alloninc.com']
+    let orgRecipients: string[] = []
+    if (organizationId && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+      const { data: managers } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('organization_id', organizationId)
+        .in('role', ['manager', 'superadmin'])
+      if (managers) {
+        orgRecipients = managers
+          .map((p: { email: string | null }) => p.email)
+          .filter((e): e is string => !!e)
+      }
+    }
+    const toList = Array.from(new Set([...baseRecipients, ...orgRecipients]))
+
     const { data, error } = await resend.emails.send({
       from: 'SEIV <finance@alloninc.com>',
-      to: ['elias@alloninc.com', 'fredrick@alloninc.com'],
+      to: toList,
       subject: `${organizationName} - Daily Report - ${employeeName} - ${formattedDate}`,
       html: `
 <!DOCTYPE html>

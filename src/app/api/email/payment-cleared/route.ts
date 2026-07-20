@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
   if (!process.env.RESEND_API_KEY) {
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
-    const { clientName, amountPaid, remainingBalance, paymentMode, date, organizationName = 'Finance' } = await req.json()
+    const { clientName, amountPaid, remainingBalance, paymentMode, date, organizationName = 'Finance', organizationId } = await req.json()
 
     const formattedDate = new Date(date).toLocaleDateString('en-UG', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -28,9 +29,30 @@ export async function POST(req: NextRequest) {
     const isCleared = Number(remainingBalance) <= 0
     const initials = clientName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
 
+    const baseRecipients = ['elias@alloninc.com', 'fredrick@alloninc.com']
+    let orgRecipients: string[] = []
+    if (organizationId && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+      const { data: managers } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('organization_id', organizationId)
+        .in('role', ['manager', 'superadmin'])
+      if (managers) {
+        orgRecipients = managers
+          .map((p: { email: string | null }) => p.email)
+          .filter((e): e is string => !!e)
+      }
+    }
+    const toList = Array.from(new Set([...baseRecipients, ...orgRecipients]))
+
     const { data, error } = await resend.emails.send({
       from: 'SEIV <finance@alloninc.com>',
-      to: ['elias@alloninc.com', 'fredrick@alloninc.com'],
+      to: toList,
       subject: isCleared
         ? `${organizationName} - Balance Cleared - ${clientName}`
         : `${organizationName} - Payment Received - ${clientName} (UGX ${Number(amountPaid).toLocaleString()})`,

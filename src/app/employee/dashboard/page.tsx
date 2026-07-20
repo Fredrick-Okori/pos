@@ -392,6 +392,7 @@ export default function EmployeeDashboard() {
           employeeName: profile?.full_name ?? 'Employee',
           reportDate: formData.report_date,
           organizationName: selectedOrg?.name ?? 'Finance',
+          organizationId: selectedOrg?.id ?? null,
           totalSales: formData.total_sales,
           cash: formData.cash,
           airtelMoney: formData.airtel_money,

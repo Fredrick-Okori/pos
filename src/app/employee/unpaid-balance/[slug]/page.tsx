@@ -375,6 +375,7 @@ export default function UnpaidBalanceDetailPage() {
           paymentMode: payment.payment_mode,
           date: payment.date,
           organizationName: selectedOrg?.name ?? 'Finance',
+          organizationId: selectedOrg?.id ?? null,
         }),
       }).catch(() => {})
 

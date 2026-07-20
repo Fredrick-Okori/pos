@@ -304,6 +304,7 @@ ${client.phone_number ? `<div class="meta">Phone: ${client.phone_number}${client
           paymentMode: payment.payment_mode,
           date: payment.date,
           organizationName: selectedOrg?.name ?? 'Finance',
+          organizationId: selectedOrg?.id ?? null,
         }),
       }).catch(() => {})
 
