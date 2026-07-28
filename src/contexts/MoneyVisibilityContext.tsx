@@ -13,7 +13,7 @@ const MoneyVisibilityContext = createContext<MoneyVisibilityContextType>({
 })
 
 export function MoneyVisibilityProvider({ children }: { children: ReactNode }) {
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(false)
   return (
     <MoneyVisibilityContext.Provider value={{ visible, toggle: () => setVisible(v => !v) }}>
       {children}
