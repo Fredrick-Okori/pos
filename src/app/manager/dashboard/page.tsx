@@ -10,6 +10,7 @@ import { useOrganization } from '@/contexts/OrganizationContext'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import Money, { MoneyToggle } from '@/components/Money'
 
 export default function ManagerDashboard() {
   const { profile } = useAuth()
@@ -73,12 +74,10 @@ export default function ManagerDashboard() {
   const totalCash = reports.reduce((s, r) => s + Number(r.cash), 0)
   const totalMobile = reports.reduce((s, r) => s + Number(r.airtel_money) + Number(r.mtn_money), 0)
 
-  const fmt = (n: number) => `UGX ${n.toLocaleString()}`
-
   const statCards = [
     {
       label: 'Total Sales (This Month)',
-      value: fmt(totalSales),
+      value: totalSales,
       sub: `${reports.length} report${reports.length !== 1 ? 's' : ''}`,
       color: '#2563EB',
       bg: 'rgba(37,99,235,.1)',
@@ -90,7 +89,7 @@ export default function ManagerDashboard() {
     },
     {
       label: 'Cash Collected',
-      value: fmt(totalCash),
+      value: totalCash,
       sub: 'this month',
       color: '#16A34A',
       bg: 'rgba(22,163,74,.1)',
@@ -102,7 +101,7 @@ export default function ManagerDashboard() {
     },
     {
       label: 'Mobile Money',
-      value: fmt(totalMobile),
+      value: totalMobile,
       sub: 'Airtel + MTN this month',
       color: '#7C3AED',
       bg: 'rgba(124,58,237,.1)',
@@ -114,7 +113,7 @@ export default function ManagerDashboard() {
     },
     {
       label: 'Outstanding Bills',
-      value: fmt(unpaidTotal),
+      value: unpaidTotal,
       sub: `${unpaidCount} open bill${unpaidCount !== 1 ? 's' : ''}`,
       color: '#D97706',
       bg: 'rgba(217,119,6,.1)',
@@ -130,14 +129,17 @@ export default function ManagerDashboard() {
     <ProtectedRoute allowedRoles={['manager']}>
       <DashboardLayout>
         {/* Header */}
-        <div className="mb-7">
-          <h1 className="text-xl font-bold text-gray-900">
-            {selectedOrg?.name ?? 'Organization'} — Overview
-          </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            Welcome back, {profile?.full_name} &nbsp;·&nbsp;{' '}
-            {format(new Date(), 'MMMM yyyy')}
-          </p>
+        <div className="flex items-start justify-between mb-7">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">
+              {selectedOrg?.name ?? 'Organization'} — Overview
+            </h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              Welcome back, {profile?.full_name} &nbsp;·&nbsp;{' '}
+              {format(new Date(), 'MMMM yyyy')}
+            </p>
+          </div>
+          <MoneyToggle />
         </div>
 
         {/* No org assigned */}
@@ -153,7 +155,7 @@ export default function ManagerDashboard() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : selectedOrg && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {statCards.map((card) => (
               <div key={card.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2.5 mb-3">
@@ -161,9 +163,9 @@ export default function ManagerDashboard() {
                     style={{ background: card.bg, color: card.color }}>
                     {card.icon}
                   </div>
-                  <p className="text-xs text-gray-400 leading-tight">{card.label}</p>
+                  <p className="text-xs text-gray-400 leading-tight truncate">{card.label}</p>
                 </div>
-                <p className="text-lg font-bold text-gray-900 leading-tight">{card.value}</p>
+                <p className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">UGX <Money value={card.value} /></p>
                 <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
               </div>
             ))}
@@ -214,10 +216,10 @@ export default function ManagerDashboard() {
                         {(r.profiles as any)?.full_name ?? '—'}
                       </td>
                       <td className="px-5 py-3 text-right font-medium text-gray-800">
-                        {Number(r.total_sales).toLocaleString()}
+                        <Money value={Number(r.total_sales)} />
                       </td>
                       <td className="px-5 py-3 text-right text-gray-600">
-                        {Number(r.cash).toLocaleString()}
+                        <Money value={Number(r.cash)} />
                       </td>
                       <td className="px-5 py-3 text-center">
                         {r.recon_status ? (

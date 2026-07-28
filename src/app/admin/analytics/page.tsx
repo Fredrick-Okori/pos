@@ -8,6 +8,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import toast from 'react-hot-toast'
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns'
+import Money, { MoneyToggle } from '@/components/Money'
 
 export default function AdminAnalytics() {
   const supabase = createClient()
@@ -107,9 +108,12 @@ export default function AdminAnalytics() {
   return (
     <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-500">Sales performance and insights (Last 30 days)</p>
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+            <p className="text-gray-500">Sales performance and insights (Last 30 days)</p>
+          </div>
+          <MoneyToggle />
         </div>
 
         {loading ? (
@@ -120,7 +124,7 @@ export default function AdminAnalytics() {
         ) : (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="card">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -130,7 +134,7 @@ export default function AdminAnalytics() {
                   </div>
                   <p className="text-sm text-gray-500">Total Sales</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{totalSales.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate"><Money value={totalSales} /></p>
               </div>
               
               <div className="card">
@@ -142,7 +146,7 @@ export default function AdminAnalytics() {
                   </div>
                   <p className="text-sm text-gray-500">Avg Daily</p>
                 </div>
-                <p className="text-2xl font-bold text-primary-600">{avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <p className="text-xl sm:text-2xl font-bold text-primary-600 truncate"><Money value={Math.round(avgDailySales)} /></p>
               </div>
               
               <div className="card">
@@ -154,7 +158,7 @@ export default function AdminAnalytics() {
                   </div>
                   <p className="text-sm text-gray-500">Expenses</p>
                 </div>
-                <p className="text-2xl font-bold text-red-600">{totalExpenses.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600 truncate"><Money value={totalExpenses} /></p>
               </div>
               
               <div className="card">
@@ -166,7 +170,7 @@ export default function AdminAnalytics() {
                   </div>
                   <p className="text-sm text-gray-500">Invoices</p>
                 </div>
-                <p className="text-2xl font-bold text-amber-600">{totalUnpaid.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600 truncate"><Money value={totalUnpaid} /></p>
               </div>
             </div>
 
@@ -197,7 +201,7 @@ export default function AdminAnalytics() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-500">Cash at Hand</span>
-                      <span className="font-medium">{paymentBreakdown.cash.toLocaleString()}</span>
+                      <Money value={paymentBreakdown.cash} className="font-medium" />
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-green-500 rounded-full" style={{ width: `${(paymentBreakdown.cash / totalSales) * 100}%` }} />
@@ -206,7 +210,7 @@ export default function AdminAnalytics() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-500">MTN Mobile Money</span>
-                      <span className="font-medium">{paymentBreakdown.mtn.toLocaleString()}</span>
+                      <Money value={paymentBreakdown.mtn} className="font-medium" />
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${(paymentBreakdown.mtn / totalSales) * 100}%` }} />
@@ -215,7 +219,7 @@ export default function AdminAnalytics() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-500">Airtel Money</span>
-                      <span className="font-medium">{paymentBreakdown.airtel.toLocaleString()}</span>
+                      <Money value={paymentBreakdown.airtel} className="font-medium" />
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-red-500 rounded-full" style={{ width: `${(paymentBreakdown.airtel / totalSales) * 100}%` }} />
@@ -224,7 +228,7 @@ export default function AdminAnalytics() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-500">Visa Card</span>
-                      <span className="font-medium">{paymentBreakdown.visa.toLocaleString()}</span>
+                      <Money value={paymentBreakdown.visa} className="font-medium" />
                     </div>
                     <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(paymentBreakdown.visa / totalSales) * 100}%` }} />
@@ -268,7 +272,7 @@ export default function AdminAnalytics() {
                             </div>
                           </td>
                           <td className="py-3 text-right text-gray-500">{emp.reportCount}</td>
-                          <td className="py-3 text-right font-medium">{emp.totalSales.toLocaleString()}</td>
+                          <td className="py-3 text-right font-medium"><Money value={emp.totalSales} /></td>
                           <td className="py-3 text-right">
                             <div className="w-24 ml-auto">
                               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">

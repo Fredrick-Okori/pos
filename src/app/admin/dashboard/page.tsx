@@ -9,6 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import toast from 'react-hot-toast'
+import Money, { MoneyToggle } from '@/components/Money'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import Link from 'next/link'
 import EditReportModal, { type EditableExpense, type EditableBill } from '@/components/EditReportModal'
@@ -102,13 +103,20 @@ export default function AdminDashboard() {
           amount,
           daily_reports!inner (
             report_date,
-            organization_id
+            organization_id,
+            user_id
           )
         `)
+        .gte('daily_reports.report_date', dateRange.start)
+        .lte('daily_reports.report_date', dateRange.end)
         .order('created_at', { ascending: false })
 
       if (selectedOrg) {
         query = query.eq('daily_reports.organization_id', selectedOrg.id)
+      }
+
+      if (selectedEmployee !== 'all') {
+        query = query.eq('daily_reports.user_id', selectedEmployee)
       }
 
       const { data, error } = await query
@@ -149,7 +157,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!selectedOrg) return
     fetchUnpaidBalances()
-  }, [selectedOrg?.id])
+  }, [selectedOrg?.id, selectedEmployee, dateRange])
 
   // Calculate summary statistics
   const summary = reports.reduce((acc, report) => ({
@@ -367,9 +375,12 @@ export default function AdminDashboard() {
       <DashboardLayout>
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Sales reports across all employees</p>
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Sales reports across all employees</p>
+          </div>
+          <MoneyToggle />
         </div>
 
         {/* Filters */}
@@ -475,17 +486,15 @@ export default function AdminDashboard() {
             },
           ]
           return (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
               {stats.map(stat => (
-                <div key={stat.label} className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
-                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl shadow-sm" style={{ background: stat.iconBg }}>
+                <div key={stat.label} className="rounded-2xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                  <div className="shrink-0 flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-xl shadow-sm" style={{ background: stat.iconBg }}>
                     {stat.icon}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-500 leading-tight">{stat.label}</p>
-                    <p className="text-2xl font-black leading-tight mt-0.5" style={{ color: stat.valueColor }}>
-                      {stat.value.toLocaleString()}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-tight truncate">{stat.label}</p>
+                    <Money value={stat.value} className="text-lg sm:text-xl lg:text-2xl font-black leading-tight mt-0.5 block truncate" />
                     <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
                   </div>
                 </div>
@@ -497,7 +506,7 @@ export default function AdminDashboard() {
         {/* Payment Breakdown */}
         <div className="mb-6">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Payment Breakdown</p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {ACCOUNTS.map((account) => {
               const accountValues: Record<string, number> = {
                 airtel_money: summary.airtelMoney,
@@ -507,15 +516,13 @@ export default function AdminDashboard() {
               }
               const value = accountValues[account.key] ?? 0
               return (
-                <div key={account.key} className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
-                  <div className="shrink-0 flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm">
-                    <AccountIcon type={account.key} size={44} />
+                <div key={account.key} className="rounded-2xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
+                  <div className="shrink-0 flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-white shadow-sm">
+                    <AccountIcon type={account.key} size={36} />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
-                    <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
-                      {value.toLocaleString()}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-tight truncate">{account.label}</p>
+                    <Money value={value} className="text-lg sm:text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-0.5 block truncate" />
                     <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
                   </div>
                 </div>
@@ -529,7 +536,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Outstanding Unpaid Balances</h2>
-                <p className="text-xs text-gray-400 mt-0.5">All-time — across all reports</p>
+                <p className="text-xs text-gray-400 mt-0.5">Filtered by selected date range &amp; employee</p>
               </div>
               <Link
                 href="/admin/unpaid-bills"
@@ -559,7 +566,7 @@ export default function AdminDashboard() {
                   style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)' }}>
                   <div>
                     <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Total Outstanding</p>
-                    <p className="text-2xl font-bold font-mono text-amber-700">{unpaidTotal.toLocaleString()} <span className="text-sm font-normal">UGX</span></p>
+                    <p className="text-2xl font-bold font-mono text-amber-700"><Money value={unpaidTotal} /> <span className="text-sm font-normal">UGX</span></p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-amber-700">{unpaidGroups.length} client{unpaidGroups.length !== 1 ? 's' : ''} with balance</p>
@@ -672,16 +679,16 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                          <span className="text-sm font-semibold font-mono text-gray-900">{Number(report.total_sales).toLocaleString()}</span>
+                          <Money value={Number(report.total_sales)} className="text-sm font-semibold font-mono text-gray-900" />
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                          <span className="text-sm font-mono font-semibold text-emerald-600">{Number(report.cash_at_hand).toLocaleString()}</span>
+                          <Money value={Number(report.cash_at_hand)} className="text-sm font-mono font-semibold text-emerald-600" />
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                          <span className="text-sm font-mono text-red-500">{expenses.toLocaleString()}</span>
+                          <Money value={expenses} className="text-sm font-mono text-red-500" />
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                          <span className="text-sm font-mono text-amber-600">{unpaid.toLocaleString()}</span>
+                          <Money value={unpaid} className="text-sm font-mono text-amber-600" />
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-center">
                           {report.is_edited ? (

@@ -9,6 +9,7 @@ import { AccountIcon } from '@/lib/accounts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import Money, { MoneyToggle } from '@/components/Money'
 
 interface UnpaidBillWithDetails {
   id: string
@@ -63,6 +64,11 @@ export default function AdminUnpaidBills() {
   const [accountPeriod, setAccountPeriod] = useState<AccountPeriod>('all')
   const [accountCustomFrom, setAccountCustomFrom] = useState('')
   const [accountCustomTo, setAccountCustomTo] = useState('')
+
+  // Period filter for bills (by report date)
+  const [billsPeriod, setBillsPeriod] = useState<AccountPeriod>('all')
+  const [billsCustomFrom, setBillsCustomFrom] = useState('')
+  const [billsCustomTo, setBillsCustomTo] = useState('')
 
   const MODE_LABELS: Record<string, string> = {
     cash: 'Cash', airtel_money: 'Airtel Money', mtn_money: 'MTN Money',
@@ -165,7 +171,23 @@ export default function AdminUnpaidBills() {
 
   const totalAllAccounts = accountTotals.reduce((s, a) => s + a.total, 0)
 
-  const filteredBills = bills.filter(bill =>
+  const periodFilteredBills = bills.filter(bill => {
+    if (billsPeriod === 'all') return true
+    const today = new Date()
+    const reportDate = new Date(bill.daily_reports.report_date)
+    if (billsPeriod === 'this_month') {
+      return reportDate >= startOfMonth(today) && reportDate <= endOfMonth(today)
+    } else if (billsPeriod === 'last_month') {
+      const last = subMonths(today, 1)
+      return reportDate >= startOfMonth(last) && reportDate <= endOfMonth(last)
+    } else {
+      if (billsCustomFrom && reportDate < new Date(billsCustomFrom)) return false
+      if (billsCustomTo && reportDate > new Date(billsCustomTo + 'T23:59:59')) return false
+      return true
+    }
+  })
+
+  const filteredBills = periodFilteredBills.filter(bill =>
     bill.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.notes?.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -212,19 +234,171 @@ export default function AdminUnpaidBills() {
     custom: customRangeLabel,
   }
 
+  const billsCustomRangeLabel =
+    billsCustomFrom && billsCustomTo
+      ? `${billsCustomFrom} – ${billsCustomTo}`
+      : billsCustomFrom
+      ? `From ${billsCustomFrom}`
+      : billsCustomTo
+      ? `Until ${billsCustomTo}`
+      : 'Custom Range'
+
+  const billsPeriodLabel: Record<AccountPeriod, string> = {
+    all: 'All Time',
+    this_month: format(new Date(), 'MMMM yyyy'),
+    last_month: format(subMonths(new Date(), 1), 'MMMM yyyy'),
+    custom: billsCustomRangeLabel,
+  }
+
+  const exportPDF = () => {
+    const date = new Date().toLocaleDateString('en-UG', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = customerGroups.map(c => {
+      const isCleared = c.total === 0
+      const isPartial = !isCleared && c.bills.some(b => Number(b.original_amount) > Number(b.amount))
+      const statusLabel = isCleared ? 'Cleared' : isPartial ? 'Partial' : 'Owing'
+      const statusColor = isCleared ? '#059669' : isPartial ? '#7c3aed' : '#d97706'
+      return `<tr>
+        <td>${c.name}</td>
+        <td style="text-align:center">${c.bills.length}</td>
+        <td style="text-align:right;font-weight:700;color:${isCleared ? '#059669' : '#d97706'}">${isCleared ? '0' : c.total.toLocaleString()}</td>
+        <td style="text-align:center;font-size:10px;font-weight:700;color:${statusColor}">${statusLabel}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Invoices – ${selectedOrg?.name ?? 'Finance'}</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#111;padding:32px;max-width:900px;margin:0 auto}
+  h1{font-size:22px;color:#0C2340;margin-bottom:4px;font-weight:700}
+  .sub{font-size:11px;color:#666;margin-bottom:20px}
+  .cards{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+  .card{background:#f4f8ff;border-radius:8px;padding:10px 16px;min-width:140px;border:1px solid #e2e8f0}
+  .card-label{font-size:9px;color:#666;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+  .card-val{font-size:18px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{text-align:left;padding:7px 8px;background:#0C2340;color:#fff;font-size:10px;font-weight:600}
+  th.r{text-align:right}th.c{text-align:center}
+  td{padding:6px 8px;border-bottom:1px solid #eee}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#fafafa}
+  .footer{margin-top:24px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:10px;text-align:center}
+  .print-btn{display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;padding:9px 20px;background:#0C2340;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  @media print{.print-btn{display:none!important}body{padding:12px}@page{margin:10mm}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">&#128438; Save as PDF / Print</button>
+<h1>Invoices — ${selectedOrg?.name ?? 'Finance'}</h1>
+<div class="sub">Outstanding Client Balances &middot; ${billsPeriodLabel[billsPeriod]} &middot; Generated ${date}</div>
+<div class="cards">
+  <div class="card"><div class="card-label">Total Outstanding</div><div class="card-val" style="color:#b45309">${totalUnpaid.toLocaleString()} UGX</div></div>
+  <div class="card"><div class="card-label">Clients Owing</div><div class="card-val">${owingCount}</div></div>
+  <div class="card"><div class="card-label">Clients Cleared</div><div class="card-val" style="color:#059669">${clearedCount}</div></div>
+  <div class="card"><div class="card-label">Partially Cleared</div><div class="card-val" style="color:#7c3aed">${partialCount}</div></div>
+  <div class="card"><div class="card-label">Total Collected</div><div class="card-val" style="color:#2563eb">${totalCollected.toLocaleString()} UGX</div></div>
+</div>
+<table>
+  <thead>
+    <tr><th>Client</th><th class="c">Bills</th><th class="r">Balance (UGX)</th><th class="c">Status</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">${selectedOrg?.name ?? 'Finance'} &middot; This is a system-generated report.</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script>
+</body></html>`
+
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank', 'width=900,height=700')
+    if (!win) { toast.error('Allow popups to export PDF'); URL.revokeObjectURL(url); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
   return (
     <ProtectedRoute allowedRoles={['superadmin', 'manager']}>
       <DashboardLayout>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-gray-500">Track and manage all outstanding client balances</p>
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+            <p className="text-gray-500">Track and manage all outstanding client balances</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={exportPDF}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{ background: '#0C2340', color: '#fff' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </button>
+            <MoneyToggle />
+          </div>
         </div>
 
         {/* Summary stats */}
+        <div className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Outstanding Balances · {billsPeriodLabel[billsPeriod]}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {(['all', 'this_month', 'last_month', 'custom'] as AccountPeriod[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setBillsPeriod(p)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  style={billsPeriod === p
+                    ? { background: '#0C2340', color: '#fff' }
+                    : { background: 'rgba(12,35,64,.06)', color: '#475569', border: '1px solid rgba(12,35,64,.12)' }
+                  }
+                >
+                  {p === 'all' ? 'All Time' : p === 'this_month' ? 'This Month' : p === 'last_month' ? 'Last Month' : 'Custom'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {billsPeriod === 'custom' && (
+            <div className="flex flex-wrap items-center gap-3 mb-3 p-3 rounded-xl" style={{ background: 'rgba(12,35,64,.04)', border: '1px solid rgba(12,35,64,.1)' }}>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">From</label>
+                <input
+                  type="date"
+                  value={billsCustomFrom}
+                  max={billsCustomTo || undefined}
+                  onChange={e => setBillsCustomFrom(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">To</label>
+                <input
+                  type="date"
+                  value={billsCustomTo}
+                  min={billsCustomFrom || undefined}
+                  onChange={e => setBillsCustomTo(e.target.value)}
+                  className="input-field py-1.5 text-sm"
+                  style={{ width: '150px' }}
+                />
+              </div>
+              {(billsCustomFrom || billsCustomTo) && (
+                <button
+                  onClick={() => { setBillsCustomFrom(''); setBillsCustomTo('') }}
+                  className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <div className="card" style={{ background: 'rgba(245,158,11,.07)', border: '1px solid rgba(245,158,11,.25)' }}>
             <p className="text-sm" style={{ color: '#92400e' }}>Total Outstanding</p>
-            <p className="text-3xl font-bold font-mono" style={{ color: '#b45309' }}>{totalUnpaid.toLocaleString()}</p>
+            <p className="text-3xl font-bold font-mono" style={{ color: '#b45309' }}><Money value={totalUnpaid} /></p>
             <p className="text-xs mt-1" style={{ color: '#b45309', opacity: 0.6 }}>UGX across all clients</p>
           </div>
           <div className="card">
@@ -242,7 +416,7 @@ export default function AdminUnpaidBills() {
           </div>
           <div className="card" style={{ background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.2)' }}>
             <p className="text-sm" style={{ color: '#1e40af' }}>Total Collected</p>
-            <p className="text-3xl font-bold font-mono" style={{ color: '#2563eb' }}>{totalCollected.toLocaleString()}</p>
+            <p className="text-3xl font-bold font-mono" style={{ color: '#2563eb' }}><Money value={totalCollected} /></p>
             <p className="text-xs mt-1" style={{ color: '#2563eb', opacity: 0.6 }}>UGX paid by clients</p>
           </div>
         </div>
@@ -320,7 +494,7 @@ export default function AdminUnpaidBills() {
                 style={{ background: 'linear-gradient(135deg,#0C2340,#1E4A7A)', color: '#fff' }}>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest opacity-60 mb-1">Total Collected · {periodLabel[accountPeriod]}</p>
-                  <p className="text-3xl font-bold font-mono">{totalAllAccounts.toLocaleString()}</p>
+                  <p className="text-3xl font-bold font-mono"><Money value={totalAllAccounts} /></p>
                   <p className="text-xs opacity-50 mt-0.5">UGX · {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}</p>
                 </div>
                 <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -341,9 +515,7 @@ export default function AdminUnpaidBills() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-500 leading-tight">{account.label}</p>
-                      <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
-                        {account.total.toLocaleString()}
-                      </p>
+                      <Money value={account.total} className="text-2xl font-black text-gray-900 leading-tight mt-0.5 block" />
                       <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
                       {account.count > 0 && (
                         <p className="text-xs text-gray-400 mt-1">
@@ -438,7 +610,7 @@ export default function AdminUnpaidBills() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <span className={`font-bold font-mono text-sm ${isCleared ? 'text-green-600' : 'text-amber-600'}`}>
-                            {isCleared ? '0' : customer.total.toLocaleString()}
+                            {isCleared ? '0' : <Money value={customer.total} />}
                           </span>
                         </td>
                         <td className="px-4 py-3.5 text-center">
@@ -512,7 +684,7 @@ export default function AdminUnpaidBills() {
                                         </span>
                                       </td>
                                       <td className="px-5 py-2.5 text-right text-xs font-bold font-mono text-violet-700 whitespace-nowrap">
-                                        {Number(pay.amount).toLocaleString()}
+                                        <Money value={Number(pay.amount)} />
                                       </td>
                                       <td className="px-4 py-2.5 text-xs text-gray-400">
                                         {pay.notes || <span className="text-gray-300">—</span>}
@@ -522,7 +694,7 @@ export default function AdminUnpaidBills() {
                                   <tr>
                                     <td colSpan={2} className="px-5 py-2 text-xs font-semibold text-violet-600">Total paid</td>
                                     <td className="px-5 py-2 text-right text-xs font-bold font-mono text-violet-700">
-                                      {clientPayments.reduce((s, p) => s + Number(p.amount), 0).toLocaleString()}
+                                      <Money value={clientPayments.reduce((s, p) => s + Number(p.amount), 0)} />
                                     </td>
                                     <td />
                                   </tr>

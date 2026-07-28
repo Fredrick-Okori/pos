@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import OrganizationSwitcher from './OrganizationSwitcher'
 import { LuCastle } from 'react-icons/lu'
+import { MoneyVisibilityProvider } from '@/contexts/MoneyVisibilityContext'
 
 interface SidebarProps {
   children: React.ReactNode
@@ -120,6 +121,7 @@ export default function DashboardLayout({ children }: SidebarProps) {
   }
 
   return (
+    <MoneyVisibilityProvider>
     <div className="min-h-screen" style={{ background: '#FAF8F4' }}>
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -243,5 +245,6 @@ export default function DashboardLayout({ children }: SidebarProps) {
         </main>
       </div>
     </div>
+    </MoneyVisibilityProvider>
   )
 }

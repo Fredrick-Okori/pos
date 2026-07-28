@@ -11,6 +11,7 @@ import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import Money, { MoneyToggle } from '@/components/Money'
 
 export default function AdminReports() {
   const supabase = createClient()
@@ -454,9 +455,12 @@ export default function AdminReports() {
       <DashboardLayout>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">All Reports</h1>
-            <p className="text-gray-500">View and export all employee sales reports</p>
+          <div className="flex items-start gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">All Reports</h1>
+              <p className="text-gray-500">View and export all employee sales reports</p>
+            </div>
+            <MoneyToggle />
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={emailSummary} className="btn-secondary flex items-center gap-2">
@@ -481,23 +485,25 @@ export default function AdminReports() {
         </div>
 
         {/* Summary strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 border border-gray-200 rounded-xl overflow-hidden mb-6 divide-x divide-gray-200">
-          {[
-            { label: 'Total Sales', value: totals.sales, color: 'text-gray-900' },
-            { label: 'Credit Sales', value: totals.credit, color: 'text-red-600' },
-            { label: 'Total Expenses', value: totals.expenses, color: 'text-amber-600' },
-            { label: 'Cash Collected', value: totals.cash, color: 'text-emerald-600' },
-            { label: 'Airtel + MTN', value: totals.airtel + totals.mtn, color: 'text-blue-600' },
-            { label: 'USD → UGX', value: totals.usdUgx, color: 'text-violet-600' },
-            { label: 'Days Shown', value: filteredReports.length, color: 'text-gray-700', raw: true },
-          ].map(({ label, value, color, raw }) => (
-            <div key={label} className="bg-white px-4 py-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-              <p className={`text-lg font-bold font-sans ${color}`}>
-                {raw ? value : (value as number).toLocaleString()}
-              </p>
-            </div>
-          ))}
+        <div className="overflow-x-auto mb-6">
+          <div className="flex border border-gray-200 rounded-xl overflow-hidden divide-x divide-gray-200 min-w-max">
+            {[
+              { label: 'Total Sales', value: totals.sales, color: 'text-gray-900' },
+              { label: 'Credit Sales', value: totals.credit, color: 'text-red-600' },
+              { label: 'Total Expenses', value: totals.expenses, color: 'text-amber-600' },
+              { label: 'Cash Collected', value: totals.cash, color: 'text-emerald-600' },
+              { label: 'Airtel + MTN', value: totals.airtel + totals.mtn, color: 'text-blue-600' },
+              { label: 'USD → UGX', value: totals.usdUgx, color: 'text-violet-600' },
+              { label: 'Days Shown', value: filteredReports.length, color: 'text-gray-700', raw: true },
+            ].map(({ label, value, color, raw }) => (
+              <div key={label} className="bg-white px-4 py-3 flex-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1 whitespace-nowrap">{label}</p>
+                <p className={`text-lg font-bold font-sans ${color} whitespace-nowrap`}>
+                  {raw ? value : <Money value={value as number} />}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Filters */}
@@ -563,16 +569,16 @@ export default function AdminReports() {
                   {/* Totals row */}
                   <tr className="bg-gray-800 text-white">
                     <td className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide" colSpan={2}>TOTALS</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-yellow-300">{totals.sales.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.cash.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.airtel.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.mtn.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300">{totals.visa.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-violet-300">{totals.usdUgx.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.comp.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300">{totals.disc.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-amber-300">{totals.expenses.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-bold font-sans text-red-300">{totals.credit.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-yellow-300"><Money value={totals.sales} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300"><Money value={totals.cash} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300"><Money value={totals.airtel} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300"><Money value={totals.mtn} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-green-300"><Money value={totals.visa} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-violet-300"><Money value={totals.usdUgx} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300"><Money value={totals.comp} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-gray-300"><Money value={totals.disc} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-amber-300"><Money value={totals.expenses} /></td>
+                    <td className="px-3 py-2 text-right font-bold font-sans text-red-300"><Money value={totals.credit} /></td>
                     <td className="px-3 py-2" colSpan={3}></td>
                   </tr>
                   {/* Header row */}
