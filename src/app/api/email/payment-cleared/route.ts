@@ -29,8 +29,7 @@ export async function POST(req: NextRequest) {
     const isCleared = Number(remainingBalance) <= 0
     const initials = clientName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
 
-    const baseRecipients = ['elias@alloninc.com', 'fredrick@alloninc.com']
-    let orgRecipients: string[] = []
+    let toList: string[] = []
     if (organizationId && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,12 +42,14 @@ export async function POST(req: NextRequest) {
         .eq('organization_id', organizationId)
         .in('role', ['manager', 'superadmin'])
       if (managers) {
-        orgRecipients = managers
+        toList = managers
           .map((p: { email: string | null }) => p.email)
           .filter((e): e is string => !!e)
       }
     }
-    const toList = Array.from(new Set([...baseRecipients, ...orgRecipients]))
+    if (toList.length === 0) {
+      return NextResponse.json({ skipped: true, reason: 'no recipients' })
+    }
 
     const { data, error } = await resend.emails.send({
       from: 'SEIV <finance@alloninc.com>',
