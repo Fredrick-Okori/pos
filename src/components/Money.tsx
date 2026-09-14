@@ -5,12 +5,13 @@ import { useMoneyVisibility } from '@/contexts/MoneyVisibilityContext'
 interface MoneyProps {
   value: number
   className?: string
+  style?: React.CSSProperties
 }
 
-export default function Money({ value, className }: MoneyProps) {
+export default function Money({ value, className, style }: MoneyProps) {
   const { visible } = useMoneyVisibility()
   return (
-    <span className={className}>
+    <span className={className} style={style}>
       {visible ? value.toLocaleString() : '******'}
     </span>
   )

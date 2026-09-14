@@ -184,6 +184,28 @@ export default function AdminDashboard() {
     unpaidBills: 0
   })
 
+  const accountValuesMap: Record<string, number> = {
+    airtel_money: summary.airtelMoney,
+    mtn_money: summary.mtnMoney,
+    visa_card: summary.visaCard,
+    cash: summary.cash,
+  }
+  const totalReceived = summary.airtelMoney + summary.mtnMoney + summary.visaCard + summary.cash
+
+  const dailyTrend = (() => {
+    const grouped: Record<string, number> = {}
+    reports.forEach(r => {
+      grouped[r.report_date] = (grouped[r.report_date] || 0) + Number(r.total_sales)
+    })
+    const sorted = Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).slice(-7)
+    const maxVal = Math.max(...sorted.map(([, v]) => v), 1)
+    return sorted.map(([date, sales]) => ({
+      label: format(new Date(date + 'T12:00:00'), 'EEE'),
+      sales,
+      pct: Math.round((sales / maxVal) * 100),
+    }))
+  })()
+
   // Quick date filters
   const setQuickFilter = (filter: string) => {
     const today = new Date()
@@ -421,7 +443,6 @@ export default function AdminDashboard() {
 
         {/* Summary Stats */}
         {(() => {
-          const totalReceived = summary.airtelMoney + summary.mtnMoney + summary.visaCard + summary.cash
           const cashAtHand = summary.totalSales - summary.expenses
           const cashPositive = cashAtHand >= 0
           const stats = [
@@ -486,48 +507,84 @@ export default function AdminDashboard() {
             },
           ]
           return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               {stats.map(stat => (
-                <div key={stat.label} className="rounded-2xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
-                  <div className="shrink-0 flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-xl shadow-sm" style={{ background: stat.iconBg }}>
-                    {stat.icon}
+                <div key={stat.label} className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: stat.iconBg }}>
+                      {stat.icon}
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-1">UGX</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-tight truncate">{stat.label}</p>
-                    <Money value={stat.value} className="text-lg sm:text-xl lg:text-2xl font-black leading-tight mt-0.5 block truncate" />
-                    <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
-                  </div>
+                  <Money value={stat.value} className="text-2xl font-bold block truncate" style={{ color: stat.valueColor }} />
+                  <p className="text-xs text-gray-500 mt-1.5 truncate">{stat.label}</p>
                 </div>
               ))}
             </div>
           )
         })()}
 
-        {/* Payment Breakdown */}
-        <div className="mb-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Payment Breakdown</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {ACCOUNTS.map((account) => {
-              const accountValues: Record<string, number> = {
-                airtel_money: summary.airtelMoney,
-                mtn_money: summary.mtnMoney,
-                visa_card: summary.visaCard,
-                cash: summary.cash,
-              }
-              const value = accountValues[account.key] ?? 0
-              return (
-                <div key={account.key} className="rounded-2xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4" style={{ background: '#f0f0f0', border: '1px solid rgba(0,0,0,.1)' }}>
-                  <div className="shrink-0 flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-white shadow-sm">
-                    <AccountIcon type={account.key} size={36} />
+        {/* Analytics Row: daily trend + payment breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          {/* Daily Sales Chart */}
+          <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <p className="text-sm font-semibold text-gray-800 mb-0.5">Daily Sales Trend</p>
+            <p className="text-xs text-gray-400 mb-4">Last {dailyTrend.length} days in selected range</p>
+            {dailyTrend.length === 0 ? (
+              <div className="h-36 flex items-center justify-center text-gray-300 text-sm">No data for range</div>
+            ) : (
+              <div className="flex items-end gap-1.5 h-36">
+                {dailyTrend.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                    <div
+                      className="w-full rounded-t-md transition-all"
+                      style={{ height: `${Math.max(d.pct, 4)}%`, background: '#0C2340', opacity: 0.85 + i * 0.02 }}
+                    />
+                    <span className="text-[10px] text-gray-400 truncate w-full text-center">{d.label}</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-tight truncate">{account.label}</p>
-                    <Money value={value} className="text-lg sm:text-xl lg:text-2xl font-black text-gray-900 leading-tight mt-0.5 block truncate" />
-                    <p className="text-xs font-semibold text-gray-400 tracking-wider">UGX</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Payment Breakdown */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <p className="text-sm font-semibold text-gray-800 mb-0.5">Payment Breakdown</p>
+            <p className="text-xs text-gray-400 mb-4">By channel</p>
+            <div className="space-y-4">
+              {ACCOUNTS.map(account => {
+                const value = accountValuesMap[account.key] ?? 0
+                const pct = totalReceived > 0 ? Math.round((value / totalReceived) * 100) : 0
+                const barColors: Record<string, string> = {
+                  airtel_money: '#FF6200',
+                  mtn_money: '#FFCC00',
+                  visa_card: '#1A1F71',
+                  cash: '#059669',
+                }
+                return (
+                  <div key={account.key}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <AccountIcon type={account.key} size={16} />
+                        <span className="text-xs font-medium text-gray-600 truncate">{account.label}</span>
+                      </div>
+                      <Money value={value} className="text-xs font-bold text-gray-800 shrink-0 ml-2" />
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: barColors[account.key] || '#0C2340' }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{pct}%</p>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-400">Total received</span>
+              <Money value={totalReceived} className="text-sm font-bold text-gray-800" />
+            </div>
           </div>
         </div>
 

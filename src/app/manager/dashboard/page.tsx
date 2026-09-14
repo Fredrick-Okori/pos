@@ -155,17 +155,18 @@ export default function ManagerDashboard() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : selectedOrg && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {statCards.map((card) => (
-              <div key={card.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              <div key={card.label} className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: card.bg, color: card.color }}>
                     {card.icon}
                   </div>
-                  <p className="text-xs text-gray-400 leading-tight truncate">{card.label}</p>
+                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-1">UGX</span>
                 </div>
-                <p className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">UGX <Money value={card.value} /></p>
+                <Money value={card.value} className="text-2xl font-bold block truncate" style={{ color: card.color }} />
+                <p className="text-sm text-gray-600 mt-1 truncate">{card.label}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
               </div>
             ))}
@@ -173,16 +174,37 @@ export default function ManagerDashboard() {
         )}
 
         {/* Quick links */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'View All Reports', href: '/admin/reports', desc: 'Browse and filter daily reports', color: '#2563EB' },
-            { label: 'Invoices', href: '/admin/unpaid-bills', desc: 'Manage client outstanding bills', color: '#D97706' },
-            { label: 'Client Ledger', href: '/admin/clients', desc: 'View client accounts', color: '#7C3AED' },
+            {
+              label: 'View All Reports', href: '/admin/reports', desc: 'Browse and filter daily reports',
+              color: '#2563EB', bg: 'rgba(37,99,235,.1)',
+              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            },
+            {
+              label: 'Invoices', href: '/admin/unpaid-bills', desc: 'Manage client outstanding bills',
+              color: '#D97706', bg: 'rgba(217,119,6,.1)',
+              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            },
+            {
+              label: 'Client Ledger', href: '/admin/clients', desc: 'View client accounts',
+              color: '#7C3AED', bg: 'rgba(124,58,237,.1)',
+              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+            },
           ].map((link) => (
             <Link key={link.href} href={link.href}
-              className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-              <p className="font-semibold text-sm text-gray-800 group-hover:text-blue-700 transition-colors">{link.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{link.desc}</p>
+              className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all group flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: link.bg, color: link.color }}>
+                {link.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-sm text-gray-800 group-hover:text-blue-700 transition-colors">{link.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{link.desc}</p>
+              </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           ))}
         </div>
