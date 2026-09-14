@@ -130,7 +130,7 @@ export default function EmployeeDashboard() {
 
   const fetchCustomerNames = async () => {
     try {
-      const orgId = selectedOrg?.id || profile?.organization_id || null
+      const orgId = selectedOrg?.id || null
       if (!orgId) return
 
       // Clients table is the authoritative source (requires supabase_clients_select_policy.sql to be run).
@@ -241,7 +241,11 @@ export default function EmployeeDashboard() {
     }
     setCreateClientModal(m => m ? { ...m, saving: true } : null)
     try {
-      const orgId = selectedOrg?.id || profile?.organization_id || null
+      const orgId = selectedOrg?.id || null
+    if (!orgId) {
+      toast.error('No active organization assigned.')
+      return
+    }
       const { error } = await supabase.from('clients').insert({
         name: createClientModal.name.trim(),
         organization_id: orgId,
@@ -307,6 +311,10 @@ export default function EmployeeDashboard() {
       toast.error('This report is locked and cannot be edited.')
       return
     }
+    if (!selectedOrg) {
+      toast.error('No active organization assigned. Cannot submit report.')
+      return
+    }
     const incompleteExpense = formData.expenses.find(e => !e.description || !(Number(e.amount) > 0))
     if (incompleteExpense) {
       toast.error('Each expense must have both a description and an amount.')
@@ -360,7 +368,7 @@ export default function EmployeeDashboard() {
           .from('daily_reports')
           .insert({
             user_id: user.id,
-            organization_id: selectedOrg?.id || profile?.organization_id || null,
+            organization_id: selectedOrg.id,
             report_date: formData.report_date,
             ...reportFields,
           })
