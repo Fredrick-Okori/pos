@@ -4,14 +4,17 @@ import { useState, useRef, useEffect } from 'react'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { LuCastle } from 'react-icons/lu'
+import CreateOrganizationModal from './CreateOrganizationModal'
 
 export default function OrganizationSwitcher() {
   const { organizations, selectedOrg, setSelectedOrg, loading } = useOrganization()
   const { profile } = useAuth()
   const [open, setOpen] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = profile?.role === 'superadmin'
+  const canCreateOrg = isAdmin && profile?.email?.toLowerCase() === 'fred.okori@kayeai.com'
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -37,68 +40,92 @@ export default function OrganizationSwitcher() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-blue-800/40 hover:bg-blue-700/50 rounded-lg transition-colors"
-      >
-        <LuCastle className="w-4 h-4 text-blue-300" />
-        <span className="text-sm font-medium text-blue-100 max-w-[150px] truncate">
-          {selectedOrg.name}
-        </span>
-        <svg className={`w-4 h-4 text-blue-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+    <>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-800/40 hover:bg-blue-700/50 rounded-lg transition-colors"
+        >
+          <LuCastle className="w-4 h-4 text-blue-300" />
+          <span className="text-sm font-medium text-blue-100 max-w-[150px] truncate">
+            {selectedOrg.name}
+          </span>
+          <svg className={`w-4 h-4 text-blue-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-      {open && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-navy-850 rounded-xl shadow-xl border border-navy-200/15 z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-navy-200/15">
-            <p className="text-xs font-semibold text-blue-200/50 uppercase tracking-wider">
-              Switch Bar
-            </p>
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {organizations.map((org) => (
-              <button
-                key={org.id}
-                onClick={() => {
-                  setSelectedOrg(org)
-                  setOpen(false)
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-navy-950 dark:hover:bg-gray-700/50 transition-colors ${
-                  selectedOrg.id === org.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                  selectedOrg.id === org.id
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-navy-900 text-blue-200/70'
-                }`}>
-                  {org.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${
+        {open && (
+          <div className="absolute top-full left-0 mt-2 w-64 bg-navy-850 rounded-xl shadow-xl border border-navy-200/15 z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-navy-200/15">
+              <p className="text-xs font-semibold text-blue-200/50 uppercase tracking-wider">
+                Switch Bar
+              </p>
+            </div>
+            <div className="max-h-64 overflow-y-auto py-1">
+              {organizations.map((org) => (
+                <button
+                  key={org.id}
+                  onClick={() => {
+                    setSelectedOrg(org)
+                    setOpen(false)
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-navy-950 dark:hover:bg-gray-700/50 transition-colors ${
+                    selectedOrg.id === org.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                     selectedOrg.id === org.id
-                      ? 'text-blue-700 dark:text-blue-300'
-                      : 'text-white'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-navy-900 text-blue-200/70'
                   }`}>
-                    {org.name}
-                  </p>
-                  {org.description && (
-                    <p className="text-xs text-blue-200/50 truncate">{org.description}</p>
+                    {org.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      selectedOrg.id === org.id
+                        ? 'text-blue-700 dark:text-blue-300'
+                        : 'text-white'
+                    }`}>
+                      {org.name}
+                    </p>
+                    {org.description && (
+                      <p className="text-xs text-blue-200/50 truncate">{org.description}</p>
+                    )}
+                  </div>
+                  {selectedOrg.id === org.id && (
+                    <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                   )}
-                </div>
-                {selectedOrg.id === org.id && (
-                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </button>
+              ))}
+            </div>
+
+            {canCreateOrg && (
+              <div className="p-2 border-t border-navy-200/15 bg-navy-900/40">
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    setShowCreateModal(true)
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-navy-800/80 hover:bg-navy-700 text-blue-100 text-xs font-semibold rounded-lg transition-colors border border-navy-200/20"
+                >
+                  <svg className="w-3.5 h-3.5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                )}
-              </button>
-            ))}
+                  <span>Add Organization</span>
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <CreateOrganizationModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
+    </>
   )
 }
