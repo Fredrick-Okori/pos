@@ -130,7 +130,7 @@ export default function EmployeeDashboard() {
 
   const fetchCustomerNames = async () => {
     try {
-      const orgId = selectedOrg?.id || null
+      const orgId = selectedOrg?.id || profile?.organization_id || null
       if (!orgId) return
 
       // Clients table is the authoritative source (requires supabase_clients_select_policy.sql to be run).
@@ -241,11 +241,11 @@ export default function EmployeeDashboard() {
     }
     setCreateClientModal(m => m ? { ...m, saving: true } : null)
     try {
-      const orgId = selectedOrg?.id || null
-    if (!orgId) {
-      toast.error('No active organization assigned.')
-      return
-    }
+      const orgId = selectedOrg?.id || profile?.organization_id || null
+      if (!orgId) {
+        toast.error('No active organization assigned.')
+        return
+      }
       const { error } = await supabase.from('clients').insert({
         name: createClientModal.name.trim(),
         organization_id: orgId,

@@ -38,16 +38,25 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (error) throw error
 
       const orgs: Organization[] = data || []
-      setOrganizations(orgs)
+      const vanguishOrg = orgs.find(org => org.name.toLowerCase() === 'vanguish' || org.slug?.toLowerCase() === 'vanguish')
+      const displayOrgs = orgs.filter(org => {
+        const name = org.name.toLowerCase()
+        const slug = org.slug?.toLowerCase() ?? ''
+        return !(name === 'thrones' || slug === 'thrones')
+      })
+
+      setOrganizations(displayOrgs)
 
       // Restore previously selected org from localStorage (admin only)
-      if (isAdmin && orgs.length > 0) {
+      if (isAdmin && displayOrgs.length > 0) {
         const savedOrgId = localStorage.getItem(ORG_STORAGE_KEY)
-        const savedOrg = savedOrgId ? orgs.find(o => o.id === savedOrgId) : null
-        setSelectedOrgState(savedOrg || orgs[0])
+        const savedOrg = savedOrgId ? displayOrgs.find(o => o.id === savedOrgId) : null
+        const preferredOrg = savedOrg || vanguishOrg || displayOrgs[0]
+        setSelectedOrgState(preferredOrg)
+        localStorage.setItem(ORG_STORAGE_KEY, preferredOrg.id)
       } else if (!isAdmin && profile?.organization_id) {
-        // Employees are locked to their assigned org
-        const empOrg = orgs.find(o => o.id === profile.organization_id)
+        // Employees and managers are locked to their assigned org
+        const empOrg = displayOrgs.find(o => o.id === profile.organization_id)
         if (empOrg) setSelectedOrgState(empOrg)
       }
     } catch (error) {

@@ -17,20 +17,23 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push('/')
-      } else if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-        if (profile.role === 'superadmin') {
-          router.push('/admin/dashboard')
-        } else if (profile.role === 'manager') {
-          router.push('/manager/dashboard')
-        } else {
-          router.push('/employee/dashboard')
-        }
+    if (loading || orgLoading) return
+
+    if (!user) {
+      router.push('/')
+      return
+    }
+
+    if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+      if (profile.role === 'superadmin') {
+        router.push('/admin/dashboard')
+      } else if (profile.role === 'manager') {
+        router.push('/manager/dashboard')
+      } else {
+        router.push('/employee/dashboard')
       }
     }
-  }, [user, profile, loading, allowedRoles, router])
+  }, [user, profile, loading, orgLoading, allowedRoles, router])
 
   if (loading || orgLoading) {
     return (

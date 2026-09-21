@@ -58,9 +58,17 @@ CREATE POLICY "Employees can view their organization" ON public.organizations
 INSERT INTO public.organizations (name, slug, description)
 VALUES
   ('Krug', 'krug', 'Krug Bar'),
-  ('Thrones', 'thrones', 'Thrones Bar'),
+  ('Vanguish', 'vanguish', 'Vanguish Bar'),
   ('Nomads', 'nomads', 'Nomads Bar')
 ON CONFLICT (slug) DO NOTHING;
+
+-- Normalize any old Thrones rows to the new Vanguish organization
+UPDATE public.organizations
+SET name = 'Vanguish',
+    slug = 'vanguish',
+    description = 'Vanguish Bar'
+WHERE slug = 'thrones'
+   OR lower(name) = 'thrones';
 
 -- 7. Assign all existing profiles to Krug (only those without an org)
 UPDATE public.profiles
