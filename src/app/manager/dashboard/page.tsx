@@ -129,7 +129,7 @@ export default function ManagerDashboard() {
     <ProtectedRoute allowedRoles={['manager']}>
       <DashboardLayout>
         {/* Header */}
-        <div className="flex items-start justify-between mb-7">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               {selectedOrg?.name ?? 'Organization'} — Overview
@@ -139,7 +139,18 @@ export default function ManagerDashboard() {
               {format(new Date(), 'MMMM yyyy')}
             </p>
           </div>
-          <MoneyToggle />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/employee/dashboard"
+              className="btn-primary text-xs sm:text-sm py-2 px-3.5 flex items-center gap-2 shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Enter Daily Report</span>
+            </Link>
+            <MoneyToggle />
+          </div>
         </div>
 
         {/* No org assigned */}
@@ -174,8 +185,13 @@ export default function ManagerDashboard() {
         )}
 
         {/* Quick links */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
+            {
+              label: 'Enter Daily Report', href: '/employee/dashboard', desc: 'Create or update today’s sales report',
+              color: '#059669', bg: 'rgba(5,150,105,.1)',
+              icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+            },
             {
               label: 'View All Reports', href: '/admin/reports', desc: 'Browse and filter daily reports',
               color: '#2563EB', bg: 'rgba(37,99,235,.1)',

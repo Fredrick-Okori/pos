@@ -304,6 +304,21 @@ export default function EmployeeDashboard() {
     return acc
   }, {} as Record<AccountType, number>)
 
+  const handleUnlockReport = async () => {
+    if (!existingReport) return
+    try {
+      const { error } = await supabase
+        .from('daily_reports')
+        .update({ is_locked: false })
+        .eq('id', existingReport.id)
+      if (error) throw error
+      toast.success('Report unlocked for editing!')
+      setExistingReport(prev => prev ? { ...prev, is_locked: false } : null)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to unlock report')
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -437,7 +452,7 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['employee']}>
+    <ProtectedRoute allowedRoles={['employee', 'manager', 'superadmin']}>
       <DashboardLayout>
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
@@ -499,6 +514,15 @@ export default function EmployeeDashboard() {
                     <p className="text-sm font-semibold" style={{ color: '#E8C97A' }}>Report already submitted for this day</p>
                     <p className="text-xs mt-0.5" style={{ color: 'rgba(232,201,122,.6)' }}>Select a different date above to create a new report for another day.</p>
                   </div>
+                  {(profile?.role === 'manager' || profile?.role === 'superadmin') && (
+                    <button
+                      type="button"
+                      onClick={handleUnlockReport}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors"
+                    >
+                      Unlock to Edit
+                    </button>
+                  )}
                   <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full" style={{ background: 'rgba(201,168,76,.15)', color: '#C9A84C', letterSpacing: '.08em' }}>LOCKED</span>
                 </div>
               )}

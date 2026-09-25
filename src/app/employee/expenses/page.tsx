@@ -123,7 +123,7 @@ export default function EmployeeExpenses() {
   const totalExpenses = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
 
   return (
-    <ProtectedRoute allowedRoles={['employee']}>
+    <ProtectedRoute allowedRoles={['employee', 'manager', 'superadmin']}>
       <DashboardLayout>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
