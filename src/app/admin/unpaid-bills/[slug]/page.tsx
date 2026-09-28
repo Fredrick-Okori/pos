@@ -120,7 +120,7 @@ export default function AdminUnpaidBillDetailPage() {
 
       const name = match.customer_name
       setCustomerName(name)
-      setBills(allBills.filter(b => b.customer_name.toLowerCase() === name.toLowerCase()))
+      setBills(allBills.filter(b => nameToSlug(b.customer_name) === slug))
 
       let clientQuery = supabase.from('clients').select('id, phone_number, email').ilike('name', name).limit(1)
       if (selectedOrg) clientQuery = clientQuery.eq('organization_id', selectedOrg.id)

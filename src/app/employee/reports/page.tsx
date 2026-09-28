@@ -187,7 +187,7 @@ export default function EmployeeReports() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['employee']}>
+    <ProtectedRoute allowedRoles={['employee', 'manager', 'superadmin']}>
       <DashboardLayout>
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

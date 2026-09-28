@@ -245,9 +245,12 @@ export default function EmployeeUnpaidBalancePage() {
 
   const totalOutstanding = filtered.reduce((s, b) => s + Number(b.amount), 0)
 
+  const nameToSlug = (name: string) =>
+    name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
   const customerGroups: CustomerGroup[] = Object.values(
     filtered.reduce((acc, bill) => {
-      const key = bill.customer_name.toLowerCase()
+      const key = nameToSlug(bill.customer_name)
       if (!acc[key]) acc[key] = { name: bill.customer_name, total: 0, bills: [] }
       acc[key].bills.push(bill)
       acc[key].total += Number(bill.amount)
@@ -263,9 +266,6 @@ export default function EmployeeUnpaidBalancePage() {
   const owingCount = customerGroups.filter(cg => cg.total > 0).length
   const clearedCount = customerGroups.filter(cg => cg.total === 0).length
   const totalCollected = filtered.reduce((s, b) => s + Math.max(0, Number(b.original_amount || 0) - Number(b.amount)), 0)
-
-  const nameToSlug = (name: string) =>
-    name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
   const getInitials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)

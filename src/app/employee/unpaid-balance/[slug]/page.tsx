@@ -124,7 +124,7 @@ export default function UnpaidBalanceDetailPage() {
 
       const name = match.customer_name
       setCustomerName(name)
-      setBills(allBills.filter(b => b.customer_name.toLowerCase() === name.toLowerCase()))
+      setBills(allBills.filter(b => nameToSlug(b.customer_name) === slug))
 
       // Look up client record
       let clientQuery = supabase

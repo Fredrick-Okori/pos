@@ -196,7 +196,7 @@ export default function AdminUnpaidBills() {
 
   const customerGroups = Object.values(
     filteredBills.reduce((acc, bill) => {
-      const key = bill.customer_name.toLowerCase()
+      const key = nameToSlug(bill.customer_name)
       if (!acc[key]) acc[key] = { name: bill.customer_name, bills: [], total: 0 }
       acc[key].bills.push(bill)
       acc[key].total += Number(bill.amount)
@@ -578,7 +578,7 @@ export default function AdminUnpaidBills() {
                   const isPartial = !isCleared && customer.bills.some(b => Number(b.original_amount) > Number(b.amount))
                   const isExpanded = expandedClients.has(customer.name.toLowerCase())
                   const clientPayments = payments
-                    .filter(p => p.customer_name.toLowerCase() === customer.name.toLowerCase())
+                    .filter(p => nameToSlug(p.customer_name) === nameToSlug(customer.name))
                     .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())
 
                   const toggleExpand = (e: React.MouseEvent) => {
