@@ -146,3 +146,34 @@ export interface ClientPayment {
   added_by: string | null
   created_at: string
 }
+
+export type NotificationStatus = 'pending' | 'acknowledged' | 'paid' | 'cancelled'
+
+export interface SystemNotification {
+  id: string
+  organization_id: string | null
+  sender_id: string | null
+  sender_email: string
+  target_role: string
+  title: string
+  message: string
+  amount: number
+  currency: string
+  billing_month: string
+  due_date: string | null
+  status: NotificationStatus
+  payment_instructions: string | null
+  notes: string | null
+  acknowledged_at: string | null
+  acknowledged_by: string | null
+  acknowledged_by_name: string | null
+  created_at: string
+  updated_at: string
+  // joined fields
+  organizations?: {
+    id: string
+    name: string
+    slug: string
+  }
+}
+

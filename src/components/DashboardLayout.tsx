@@ -15,10 +15,37 @@ interface SidebarProps {
 
 export default function DashboardLayout({ children }: SidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingNotifsCount, setPendingNotifsCount] = useState<number>(0)
   const { profile, signOut } = useAuth()
   const pathname = usePathname()
   const isAdmin = profile?.role === 'superadmin'
   const isManager = profile?.role === 'manager'
+  const isSuperFred = isAdmin && profile?.email?.toLowerCase() === 'fred.okori@kayeai.com'
+
+  useEffect(() => {
+    if (!profile) return
+    const fetchCount = async () => {
+      try {
+        if (isSuperFred) {
+          const res = await fetch('/api/admin/notifications')
+          if (res.ok) {
+            const data = await res.json()
+            const pending = (data.notifications || []).filter((n: any) => n.status === 'pending').length
+            setPendingNotifsCount(pending)
+          }
+        } else if (isManager) {
+          const res = await fetch('/api/manager/notifications')
+          if (res.ok) {
+            const data = await res.json()
+            setPendingNotifsCount(data.pendingCount || 0)
+          }
+        }
+      } catch {
+        // non-critical
+      }
+    }
+    fetchCount()
+  }, [profile, isSuperFred, isManager, pathname])
 
   const employeeMenuItems = [
     {
@@ -43,8 +70,6 @@ export default function DashboardLayout({ children }: SidebarProps) {
     },
   ]
 
-  const isSuperFred = isAdmin && profile?.email?.toLowerCase() === 'fred.okori@kayeai.com'
-
   const adminMenuItems = [
     {
       name: 'Dashboard',
@@ -67,6 +92,11 @@ export default function DashboardLayout({ children }: SidebarProps) {
             name: 'Organizations',
             href: '/admin/organizations',
             icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+          },
+          {
+            name: 'Notifications',
+            href: '/admin/notifications',
+            icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
           },
         ]
       : []),
@@ -117,6 +147,11 @@ export default function DashboardLayout({ children }: SidebarProps) {
       name: 'Client Ledger',
       href: '/admin/clients',
       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+    },
+    {
+      name: 'Notifications',
+      href: '/manager/notifications',
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
     },
   ]
 
@@ -249,10 +284,30 @@ export default function DashboardLayout({ children }: SidebarProps) {
             <OrganizationSwitcher />
           </div>
 
-          {/* Date */}
-          <p className="hidden sm:block font-sans text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
-            {new Date().toLocaleDateString('en-UG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-          </p>
+          {/* Right side: Notifications bell & date */}
+          <div className="flex items-center gap-3">
+            {(isSuperFred || isManager) && (
+              <Link
+                href={isSuperFred ? '/admin/notifications' : '/manager/notifications'}
+                className="relative p-2 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 transition flex items-center justify-center"
+                title={isSuperFred ? 'Payment Notifications (Superadmin)' : 'System Notifications'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {pendingNotifsCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-[#0C2340] shadow-sm">
+                    {pendingNotifsCount > 9 ? '9+' : pendingNotifsCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            {/* Date */}
+            <p className="hidden sm:block font-sans text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
+              {new Date().toLocaleDateString('en-UG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+            </p>
+          </div>
         </header>
 
         {/* Page content */}

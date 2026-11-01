@@ -21,6 +21,22 @@ export default function ManagerDashboard() {
   const [reports, setReports] = useState<DailyReport[]>([])
   const [unpaidTotal, setUnpaidTotal] = useState(0)
   const [unpaidCount, setUnpaidCount] = useState(0)
+  const [pendingFeeNotif, setPendingFeeNotif] = useState<any | null>(null)
+
+  useEffect(() => {
+    const checkFee = async () => {
+      try {
+        const res = await fetch('/api/manager/notifications')
+        if (res.ok) {
+          const data = await res.json()
+          setPendingFeeNotif(data.latestPending || null)
+        }
+      } catch {
+        // non-critical
+      }
+    }
+    checkFee()
+  }, [selectedOrg?.id])
 
   useEffect(() => {
     if (!selectedOrg) return
@@ -157,6 +173,34 @@ export default function ManagerDashboard() {
         {!orgLoading && !selectedOrg && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-700 text-sm mb-8">
             No organization is assigned to your account. Please contact your administrator.
+          </div>
+        )}
+
+        {/* Pending monthly system fee notification banner */}
+        {pendingFeeNotif && (
+          <div className="mb-6 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">🔔</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                    Monthly System Utilization Fee Due
+                  </span>
+                  <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded">
+                    {pendingFeeNotif.billing_month}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-700 mt-0.5">
+                  A monthly fee of <strong>{Number(pendingFeeNotif.amount).toLocaleString()} {pendingFeeNotif.currency}</strong> is pending for your organization. Please complete payment to maintain uninterrupted access.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/manager/notifications"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0C2340] hover:bg-[#16375f] text-amber-400 font-semibold text-xs rounded-lg transition shrink-0 self-start sm:self-center shadow-sm"
+            >
+              View Payment Info & Confirm →
+            </Link>
           </div>
         )}
 
